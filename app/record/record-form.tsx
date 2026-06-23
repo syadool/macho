@@ -6,6 +6,7 @@ import { Check, Minus, Plus } from "lucide-react";
 import { Card, OutlineButton, Pill, PrimaryButton } from "@/components/ui";
 import type { Equipment, MuscleGroup, NewExercisePayload } from "@/lib/types";
 import { shortMuscleName } from "@/lib/constants";
+import { toDateInputValue } from "@/lib/date";
 import { saveWorkout } from "./actions";
 
 export function RecordForm({
@@ -16,13 +17,14 @@ export function RecordForm({
   equipment: Equipment[];
 }) {
   const router = useRouter();
+  const [workoutDate, setWorkoutDate] = useState(toDateInputValue());
   const [selectedMuscleId, setSelectedMuscleId] = useState(muscleGroups[0]?.id ?? "");
   const selectedMuscle = useMemo(
     () => muscleGroups.find((group) => group.id === selectedMuscleId) ?? muscleGroups[0],
     [muscleGroups, selectedMuscleId],
   );
   const subGroups = selectedMuscle?.muscle_sub_groups ?? [];
-  const [selectedSubId, setSelectedSubId] = useState<string | null>(subGroups[0]?.id ?? null);
+  const [selectedSubIds, setSelectedSubIds] = useState<string[]>([]);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string | null>(equipment[0]?.id ?? null);
   const [exerciseName, setExerciseName] = useState("インクラインベンチプレス");
   const [weight, setWeight] = useState(60);
@@ -33,9 +35,12 @@ export function RecordForm({
   const [isPending, startTransition] = useTransition();
 
   function chooseMuscle(id: string) {
-    const group = muscleGroups.find((item) => item.id === id);
     setSelectedMuscleId(id);
-    setSelectedSubId(group?.muscle_sub_groups?.[0]?.id ?? null);
+    setSelectedSubIds([]);
+  }
+
+  function toggleSubGroup(id: string) {
+    setSelectedSubIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
 
   function addExercise() {
@@ -49,7 +54,7 @@ export function RecordForm({
       {
         exercise_name: exerciseName.trim(),
         muscle_group_id: selectedMuscle.id,
-        muscle_sub_group_id: selectedSubId,
+        muscle_sub_group_ids: selectedSubIds,
         equipment_id: selectedEquipmentId,
         weight_kg: weight,
         reps,
@@ -62,7 +67,7 @@ export function RecordForm({
 
   function submitWorkout() {
     startTransition(async () => {
-      const result = await saveWorkout(exercises);
+      const result = await saveWorkout(workoutDate, exercises);
       if (result.ok) {
         router.push("/dashboard");
         router.refresh();
@@ -74,6 +79,19 @@ export function RecordForm({
 
   return (
     <>
+      <Card className="mt-4">
+        <label htmlFor="workout-date" className="mb-1.5 block text-[11px] text-macho-muted">
+          トレーニング日
+        </label>
+        <input
+          id="workout-date"
+          type="date"
+          value={workoutDate}
+          onChange={(event) => setWorkoutDate(event.target.value)}
+          className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-sm text-macho-text outline-none transition focus:border-macho-lime"
+        />
+      </Card>
+
       <p className="mb-2 mt-4 text-xs font-medium text-macho-muted">部位を選択</p>
       <div className="grid grid-cols-3 gap-2">
         {muscleGroups.map((group) => {
@@ -99,7 +117,7 @@ export function RecordForm({
       <p className="mb-1.5 mt-3.5 text-xs font-medium text-macho-muted">サブカテゴリ</p>
       <div className="flex flex-wrap gap-1.5">
         {subGroups.map((subGroup) => (
-          <Pill key={subGroup.id} active={selectedSubId === subGroup.id} onClick={() => setSelectedSubId(subGroup.id)}>
+          <Pill key={subGroup.id} active={selectedSubIds.includes(subGroup.id)} onClick={() => toggleSubGroup(subGroup.id)}>
             {subGroup.name}
           </Pill>
         ))}
@@ -131,7 +149,7 @@ export function RecordForm({
 
       <div className="mt-3.5 grid grid-cols-3 gap-2">
         <Stepper label="重量 (kg)" value={weight} min={0} step={2.5} onChange={setWeight} />
-        <Stepper label="回数" value={reps} min={1} step={1} onChange={setReps} />
+        <Stepper label="回数" value={reps} min={0} step={1} onChange={setReps} />
         <Stepper label="セット" value={sets} min={1} step={1} onChange={setSets} />
       </div>
 
@@ -139,6 +157,9 @@ export function RecordForm({
         {exercises.map((exercise, index) => {
           const muscle = muscleGroups.find((group) => group.id === exercise.muscle_group_id);
           const tool = equipment.find((item) => item.id === exercise.equipment_id);
+          const subNames = exercise.muscle_sub_group_ids
+            .map((id) => muscle?.muscle_sub_groups?.find((group) => group.id === id)?.name)
+            .filter(Boolean);
           return (
             <Card key={`${exercise.exercise_name}-${index}`} className="mb-2.5 flex items-center gap-3">
               <div className="h-9 w-1 shrink-0 rounded-full" style={{ backgroundColor: muscle?.color ?? "#D4FF00" }} />
@@ -147,6 +168,7 @@ export function RecordForm({
                 <p className="text-[11px] text-macho-muted">
                   {tool?.name ?? "器具なし"} ・ {exercise.weight_kg}kg x {exercise.reps}回 x {exercise.sets}set
                 </p>
+                {subNames.length > 0 && <p className="mt-0.5 text-[11px] text-macho-muted">{subNames.join(" / ")}</p>}
               </div>
               <Check size={18} className="text-macho-lime" />
             </Card>
@@ -181,6 +203,16 @@ function Stepper({
   step: number;
   onChange: (value: number) => void;
 }) {
+  function updateValue(rawValue: string) {
+    if (rawValue === "") {
+      onChange(min);
+      return;
+    }
+
+    const nextValue = Number(rawValue);
+    if (!Number.isNaN(nextValue)) onChange(Math.max(min, nextValue));
+  }
+
   return (
     <Card className="px-1.5 py-3 text-center">
       <p className="mb-1.5 text-[11px] text-macho-muted">{label}</p>
@@ -192,7 +224,16 @@ function Stepper({
         >
           <Minus size={14} />
         </button>
-        <span className="min-w-7 font-display text-[26px] leading-none tracking-[0.04em] text-macho-lime">{value}</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          min={min}
+          step={step}
+          value={value}
+          onChange={(event) => updateValue(event.target.value)}
+          className="min-w-0 flex-1 bg-transparent text-center font-display text-[26px] leading-none tracking-[0.04em] text-macho-lime outline-none"
+          aria-label={label}
+        />
         <button
           type="button"
           onClick={() => onChange(value + step)}

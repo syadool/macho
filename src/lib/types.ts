@@ -32,6 +32,7 @@ export type WorkoutExercise = {
   exercise_name: string;
   sort_order: number;
   muscle_groups: MuscleGroup | null;
+  muscle_sub_groups?: MuscleSubGroup[];
   equipment: Equipment | null;
   workout_sets: WorkoutSet[];
 };
@@ -46,7 +47,7 @@ export type Workout = {
 export type NewExercisePayload = {
   exercise_name: string;
   muscle_group_id: string;
-  muscle_sub_group_id: string | null;
+  muscle_sub_group_ids: string[];
   equipment_id: string | null;
   weight_kg: number;
   reps: number;

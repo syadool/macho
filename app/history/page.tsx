@@ -55,11 +55,18 @@ export default async function HistoryPage({
                     <div key={exercise.id} className="mb-2.5 last:mb-0">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-[13px]">{exercise.exercise_name}</p>
-                        {exercise.equipment && (
-                          <span className="shrink-0 rounded-lg bg-macho-surface px-2 py-0.5 text-[11px] text-macho-muted">
-                            {exercise.equipment.name}
-                          </span>
-                        )}
+                        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                          {exercise.muscle_sub_groups?.map((subGroup) => (
+                            <span key={subGroup.id} className="rounded-lg bg-macho-lime/10 px-2 py-0.5 text-[11px] text-macho-lime">
+                              {subGroup.name}
+                            </span>
+                          ))}
+                          {exercise.equipment && (
+                            <span className="rounded-lg bg-macho-surface px-2 py-0.5 text-[11px] text-macho-muted">
+                              {exercise.equipment.name}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="mt-0.5 text-xs text-macho-lime">{describeSets(exercise.workout_sets)}</p>
                     </div>

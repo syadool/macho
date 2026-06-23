@@ -1,11 +1,14 @@
 import { MUSCLE_GROUPS, EQUIPMENT } from "@/lib/constants";
-import type { Equipment, MuscleGroup, Workout } from "@/lib/types";
+import type { Equipment, MuscleGroup, MuscleSubGroup, Workout } from "@/lib/types";
 import { requireUser } from "@/lib/supabase/server";
 
 type SupabaseWorkout = Omit<Workout, "workout_exercises"> & {
   workout_exercises: Array<
     Omit<Workout["workout_exercises"][number], "muscle_groups" | "equipment"> & {
       muscle_groups: MuscleGroup | MuscleGroup[] | null;
+      workout_exercise_sub_groups?: Array<{
+        muscle_sub_groups: MuscleSubGroup | MuscleSubGroup[] | null;
+      }>;
       equipment: Equipment | Equipment[] | null;
     }
   >;
@@ -34,7 +37,7 @@ export async function getWorkouts(limit = 30) {
   const { data } = await supabase
     .from("workouts")
     .select(
-      "id,date,created_at,workout_exercises(id,exercise_name,sort_order,muscle_groups(id,name,name_en,color,sort_order),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))",
+      "id,date,created_at,workout_exercises(id,exercise_name,sort_order,muscle_groups(id,name,name_en,color,sort_order),workout_exercise_sub_groups(muscle_sub_groups(id,muscle_group_id,name,sort_order)),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))",
     )
     .eq("user_id", user.id)
     .order("date", { ascending: false })
@@ -51,9 +54,21 @@ function normalizeWorkouts(workouts: SupabaseWorkout[]): Workout[] {
       .map((exercise) => ({
         ...exercise,
         muscle_groups: Array.isArray(exercise.muscle_groups) ? exercise.muscle_groups[0] ?? null : exercise.muscle_groups,
+        muscle_sub_groups: normalizeExerciseSubGroups(exercise.workout_exercise_sub_groups),
         equipment: Array.isArray(exercise.equipment) ? exercise.equipment[0] ?? null : exercise.equipment,
         workout_sets: exercise.workout_sets.sort((a, b) => a.set_number - b.set_number),
       }))
       .sort((a, b) => a.sort_order - b.sort_order),
   }));
+}
+
+function normalizeExerciseSubGroups(
+  rows: SupabaseWorkout["workout_exercises"][number]["workout_exercise_sub_groups"],
+) {
+  return (rows ?? [])
+    .map((row) =>
+      Array.isArray(row.muscle_sub_groups) ? row.muscle_sub_groups[0] ?? null : row.muscle_sub_groups,
+    )
+    .filter((group): group is MuscleSubGroup => Boolean(group))
+    .sort((a, b) => a.sort_order - b.sort_order);
 }

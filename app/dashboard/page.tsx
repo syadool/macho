@@ -3,7 +3,7 @@ import { ChevronRight, Sparkles } from "lucide-react";
 import { BottomNav, Card } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
 import { getWorkouts } from "@/lib/data";
-import { formatJapaneseDate, formatShortDate, toDateInputValue } from "@/lib/date";
+import { formatShortDate, toDateInputValue } from "@/lib/date";
 import { primaryMuscle, workoutSetCount, workoutSummary, workoutTitle, workoutVolume } from "@/lib/workouts";
 import { shortMuscleName } from "@/lib/constants";
 
@@ -24,8 +24,7 @@ export default async function DashboardPage() {
   return (
     <PhoneShell nav={<BottomNav active="dashboard" />}>
       <section className="pt-2">
-        <p className="text-[13px] text-macho-muted">{formatJapaneseDate(new Date())}</p>
-        <h1 className="mt-0.5 font-display text-[34px] leading-none tracking-[0.04em]">
+        <h1 className="font-display text-[34px] leading-none tracking-[0.04em]">
           今日の<span className="text-macho-lime">ワークアウト</span>
         </h1>
       </section>
