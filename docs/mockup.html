@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MACHO - UIデザインモックアップ</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:#111;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;padding:2rem;color:#f0f0f0}
+.wrap{max-width:500px;width:100%}
+.tabs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+.tab{padding:8px 16px;border-radius:20px;font-size:13px;font-weight:500;cursor:pointer;border:0.5px solid #333;background:transparent;color:#888;font-family:'Outfit',sans-serif;transition:all 0.2s}
+.tab.on{background:#fff;color:#000;border-color:transparent}
+.tab:hover{border-color:#666}
+.phone{width:375px;margin:0 auto;background:#0A0A0B;border-radius:44px;overflow:hidden;border:1px solid #333;display:flex;flex-direction:column;min-height:700px}
+.h{font-family:'Bebas Neue',sans-serif;letter-spacing:0.04em}
+.ms{flex:1;padding:0 20px 20px}
+.btn{background:#D4FF00;color:#0A0A0B;border:none;border-radius:14px;padding:15px;font-family:'Outfit',sans-serif;font-weight:600;font-size:15px;cursor:pointer;width:100%;text-align:center}
+.btn:hover{opacity:0.9}
+.card{background:#1A1A1E;border-radius:14px;padding:16px;border:0.5px solid #2A2A30}
+.pill{display:inline-block;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:500;cursor:pointer;border:0.5px solid #2A2A30;background:#141416;color:#6B6B75;transition:all 0.15s}
+.pill:hover{border-color:#555}
+.pill.on{background:rgba(212,255,0,0.12);border-color:#D4FF00;color:#D4FF00}
+.nv{display:flex;justify-content:space-around;align-items:center;padding:8px 0 24px;background:#111114;border-top:0.5px solid #2A2A30}
+.ni{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#6B6B75;cursor:pointer;padding:6px 16px;border:none;background:none;font-family:'Outfit',sans-serif;transition:color 0.15s}
+.ni.on{color:#D4FF00}.ni.on i{color:#D4FF00}
+.ni i{font-size:20px;color:#6B6B75;transition:color 0.15s}
+.ni:hover{color:#aaa}.ni:hover i{color:#aaa}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1 style="text-align:center;font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.1em;margin-bottom:4px;color:#D4FF00">MACHO</h1>
+<p style="text-align:center;font-size:13px;color:#666;margin-bottom:20px">UI design mockup</p>
+
+<div class="tabs">
+<button class="tab on" onclick="go('login')">ログイン</button>
+<button class="tab" onclick="go('dash')">ダッシュボード</button>
+<button class="tab" onclick="go('rec')">記録</button>
+<button class="tab" onclick="go('hist')">履歴</button>
+</div>
+
+<div class="phone">
+
+<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 32px 8px;font-size:13px;font-weight:600">
+<span>9:41</span>
+<div style="width:120px;height:28px;border-radius:20px;background:#1A1A1E;margin:0 auto"></div>
+<div style="display:flex;gap:5px;align-items:center">
+<i class="ti ti-wifi" style="font-size:14px"></i>
+<i class="ti ti-battery-3" style="font-size:16px"></i>
+</div>
+</div>
+
+<div class="ms" id="s-login" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:60px 20px 40px;justify-content:center">
+<div style="margin-bottom:44px">
+<div style="width:72px;height:72px;border-radius:18px;background:rgba(212,255,0,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;border:0.5px solid rgba(212,255,0,0.2)">
+<i class="ti ti-barbell" style="font-size:32px;color:#D4FF00"></i>
+</div>
+<h1 class="h" style="font-size:64px;line-height:0.9;color:#D4FF00">MACHO</h1>
+<p style="font-size:13px;color:#6B6B75;margin-top:8px;letter-spacing:0.15em;font-weight:500">WORKOUT TRACKER</p>
+</div>
+<p style="font-size:14px;color:#555;margin-bottom:40px;line-height:1.7;max-width:260px">トレーニングを記録して<br>理想のカラダを手に入れよう</p>
+<button onclick="go('dash')" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#000;border:none;border-radius:14px;padding:15px 32px;font-family:'Outfit',sans-serif;font-weight:600;font-size:15px;cursor:pointer;width:280px">
+<svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+Googleでログイン
+</button>
+<p style="font-size:11px;color:#444;margin-top:48px">v1.0.0</p>
+</div>
+
+<div class="ms" id="s-dash" style="display:none;padding:0 20px 20px">
+<div style="padding-top:8px;margin-bottom:20px">
+<p style="font-size:13px;color:#6B6B75">2026年6月23日 月曜日</p>
+<h2 class="h" style="font-size:34px;line-height:1;margin-top:2px">今日の<span style="color:#D4FF00">ワークアウト</span></h2>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px">
+<div class="card" style="text-align:center;padding:14px 6px">
+<p style="font-size:11px;color:#6B6B75">エクササイズ</p>
+<p class="h" style="font-size:30px;color:#D4FF00;margin-top:2px">3</p>
+</div>
+<div class="card" style="text-align:center;padding:14px 6px">
+<p style="font-size:11px;color:#6B6B75">セット</p>
+<p class="h" style="font-size:30px;color:#D4FF00;margin-top:2px">12</p>
+</div>
+<div class="card" style="text-align:center;padding:14px 6px">
+<p style="font-size:11px;color:#6B6B75">ボリューム</p>
+<p class="h" style="font-size:30px;color:#D4FF00;margin-top:2px">2.8<span style="font-size:14px;font-family:'Outfit',sans-serif">t</span></p>
+</div>
+</div>
+<div class="card" style="margin-bottom:18px">
+<p style="font-size:13px;font-weight:500;margin-bottom:14px">今週のアクティビティ</p>
+<div style="display:flex;align-items:flex-end;height:80px;gap:6px">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="width:100%;background:#D4FF00;height:55px;border-radius:6px;margin-bottom:6px"></div><span style="font-size:11px;color:#6B6B75">月</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="width:100%;background:rgba(212,255,0,0.25);height:20px;border-radius:6px;margin-bottom:6px"></div><span style="font-size:11px;color:#6B6B75">火</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="width:100%;background:#D4FF00;height:42px;border-radius:6px;margin-bottom:6px"></div><span style="font-size:11px;color:#6B6B75">水</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="width:100%;background:rgba(212,255,0,0.08);height:4px;border-radius:6px;margin-bottom:6px"></div><span style="font-size:11px;color:#6B6B75">木</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="width:100%;background:#D4FF00;height:68px;border-radius:6px;margin-bottom:6px"></div><span style="font-size:11px;color:#6B6B75">金</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="width:100%;background:rgba(212,255,0,0.25);height:30px;border-radius:6px;margin-bottom:6px"></div><span style="font-size:11px;color:#6B6B75">土</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="width:100%;background:rgba(212,255,0,0.08);height:4px;border-radius:6px;margin-bottom:6px"></div><span style="font-size:11px;color:#6B6B75">日</span></div>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+<p style="font-size:13px;font-weight:500">最近の記録</p>
+<button style="font-size:12px;color:#D4FF00;background:none;border:none;cursor:pointer;font-family:'Outfit',sans-serif" onclick="go('hist')">すべて見る <i class="ti ti-chevron-right" style="font-size:12px"></i></button>
+</div>
+<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer">
+<div style="width:40px;height:40px;border-radius:10px;background:rgba(255,107,107,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:#FF6B6B;flex-shrink:0">胸</div>
+<div style="flex:1;min-width:0"><p style="font-size:14px;font-weight:500">胸 + 腕</p><p style="font-size:12px;color:#6B6B75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ベンチプレス, ダンベルフライ 他</p></div>
+<div style="text-align:right;flex-shrink:0"><p style="font-size:11px;color:#6B6B75">今日</p><p style="font-size:12px;color:#D4FF00;font-weight:500">12set</p></div>
+</div>
+<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer">
+<div style="width:40px;height:40px;border-radius:10px;background:rgba(78,205,196,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:#4ECDC4;flex-shrink:0">背</div>
+<div style="flex:1;min-width:0"><p style="font-size:14px;font-weight:500">背中 + 肩</p><p style="font-size:12px;color:#6B6B75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">デッドリフト, ラットプルダウン 他</p></div>
+<div style="text-align:right;flex-shrink:0"><p style="font-size:11px;color:#6B6B75">昨日</p><p style="font-size:12px;color:#D4FF00;font-weight:500">15set</p></div>
+</div>
+<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer">
+<div style="width:40px;height:40px;border-radius:10px;background:rgba(52,211,153,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:#34D399;flex-shrink:0">脚</div>
+<div style="flex:1;min-width:0"><p style="font-size:14px;font-weight:500">脚</p><p style="font-size:12px;color:#6B6B75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">スクワット, レッグプレス 他</p></div>
+<div style="text-align:right;flex-shrink:0"><p style="font-size:11px;color:#6B6B75">6/21</p><p style="font-size:12px;color:#D4FF00;font-weight:500">10set</p></div>
+</div>
+<div class="card" style="margin-top:12px;display:flex;align-items:center;gap:12px;opacity:0.35">
+<div style="width:40px;height:40px;border-radius:10px;background:rgba(212,255,0,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+<i class="ti ti-sparkles" style="font-size:20px;color:#D4FF00"></i>
+</div>
+<div style="flex:1"><p style="font-size:13px;font-weight:500">AIメニュー提案</p><p style="font-size:11px;color:#6B6B75">ChatGPTが次回メニューを提案 (coming soon)</p></div>
+<i class="ti ti-chevron-right" style="font-size:16px;color:#6B6B75"></i>
+</div>
+</div>
+
+<div class="ms" id="s-rec" style="display:none;padding:0 20px 20px">
+<div style="padding-top:8px;margin-bottom:16px">
+<h2 class="h" style="font-size:34px;line-height:1">新規<span style="color:#D4FF00">記録</span></h2>
+</div>
+<p style="font-size:12px;color:#6B6B75;margin-bottom:8px;font-weight:500">部位を選択</p>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+<div class="card" style="text-align:center;padding:14px 8px;cursor:pointer;border-color:#D4FF00;background:rgba(212,255,0,0.06)">
+<span style="font-size:22px;font-weight:600;color:#FF6B6B;display:block;margin-bottom:4px">胸</span>
+<p style="font-size:11px;color:#D4FF00">Chest</p>
+</div>
+<div class="card" style="text-align:center;padding:14px 8px;cursor:pointer">
+<span style="font-size:22px;font-weight:600;color:#4ECDC4;display:block;margin-bottom:4px">背</span>
+<p style="font-size:11px;color:#6B6B75">Back</p>
+</div>
+<div class="card" style="text-align:center;padding:14px 8px;cursor:pointer">
+<span style="font-size:22px;font-weight:600;color:#A78BFA;display:block;margin-bottom:4px">肩</span>
+<p style="font-size:11px;color:#6B6B75">Shoulder</p>
+</div>
+<div class="card" style="text-align:center;padding:14px 8px;cursor:pointer">
+<span style="font-size:22px;font-weight:600;color:#F59E0B;display:block;margin-bottom:4px">腕</span>
+<p style="font-size:11px;color:#6B6B75">Arms</p>
+</div>
+<div class="card" style="text-align:center;padding:14px 8px;cursor:pointer">
+<span style="font-size:22px;font-weight:600;color:#34D399;display:block;margin-bottom:4px">脚</span>
+<p style="font-size:11px;color:#6B6B75">Legs</p>
+</div>
+<div class="card" style="text-align:center;padding:14px 8px;cursor:pointer">
+<span style="font-size:22px;font-weight:600;color:#60A5FA;display:block;margin-bottom:4px">腹</span>
+<p style="font-size:11px;color:#6B6B75">Abs</p>
+</div>
+</div>
+<p style="font-size:12px;color:#6B6B75;margin-bottom:6px;font-weight:500">サブカテゴリ</p>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+<span class="pill on">大胸筋上部</span>
+<span class="pill">大胸筋中部</span>
+<span class="pill">大胸筋下部</span>
+</div>
+<div class="card" style="margin-bottom:10px">
+<p style="font-size:11px;color:#6B6B75;margin-bottom:6px">エクササイズ名</p>
+<div style="background:#141416;border-radius:10px;padding:12px 14px;border:0.5px solid #2A2A30">
+<p style="font-size:14px">インクラインベンチプレス</p>
+</div>
+</div>
+<div class="card" style="margin-bottom:14px">
+<p style="font-size:11px;color:#6B6B75;margin-bottom:8px">器具</p>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<span class="pill on">バーベル</span>
+<span class="pill">ダンベル</span>
+<span class="pill">マシン</span>
+<span class="pill">ケーブル</span>
+<span class="pill">自重</span>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+<div class="card" style="text-align:center;padding:12px 6px">
+<p style="font-size:11px;color:#6B6B75;margin-bottom:6px">重量 (kg)</p>
+<div style="display:flex;align-items:center;justify-content:center;gap:8px">
+<span style="width:28px;height:28px;border-radius:50%;background:#141416;border:0.5px solid #2A2A30;display:inline-flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:#6B6B75">-</span>
+<span class="h" style="font-size:26px;color:#D4FF00;min-width:36px">60</span>
+<span style="width:28px;height:28px;border-radius:50%;background:#141416;border:0.5px solid #2A2A30;display:inline-flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:#6B6B75">+</span>
+</div>
+</div>
+<div class="card" style="text-align:center;padding:12px 6px">
+<p style="font-size:11px;color:#6B6B75;margin-bottom:6px">回数</p>
+<div style="display:flex;align-items:center;justify-content:center;gap:8px">
+<span style="width:28px;height:28px;border-radius:50%;background:#141416;border:0.5px solid #2A2A30;display:inline-flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:#6B6B75">-</span>
+<span class="h" style="font-size:26px;color:#D4FF00;min-width:24px">10</span>
+<span style="width:28px;height:28px;border-radius:50%;background:#141416;border:0.5px solid #2A2A30;display:inline-flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:#6B6B75">+</span>
+</div>
+</div>
+<div class="card" style="text-align:center;padding:12px 6px">
+<p style="font-size:11px;color:#6B6B75;margin-bottom:6px">セット</p>
+<div style="display:flex;align-items:center;justify-content:center;gap:8px">
+<span style="width:28px;height:28px;border-radius:50%;background:#141416;border:0.5px solid #2A2A30;display:inline-flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:#6B6B75">-</span>
+<span class="h" style="font-size:26px;color:#D4FF00;min-width:24px">3</span>
+<span style="width:28px;height:28px;border-radius:50%;background:#141416;border:0.5px solid #2A2A30;display:inline-flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:#6B6B75">+</span>
+</div>
+</div>
+</div>
+<div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:12px">
+<div style="width:4px;height:36px;border-radius:2px;background:#FF6B6B;flex-shrink:0"></div>
+<div style="flex:1"><p style="font-size:13px;font-weight:500">ベンチプレス</p><p style="font-size:11px;color:#6B6B75">バーベル ・ 80kg x 8回 x 3set</p></div>
+<i class="ti ti-check" style="font-size:18px;color:#D4FF00"></i>
+</div>
+<button style="width:100%;background:transparent;color:#D4FF00;border:0.5px solid #D4FF00;border-radius:14px;padding:13px;font-family:'Outfit',sans-serif;font-weight:500;font-size:14px;cursor:pointer;margin-bottom:10px">
+<i class="ti ti-plus" style="font-size:14px;vertical-align:-1px;margin-right:4px"></i>エクササイズを追加
+</button>
+<button class="btn"><i class="ti ti-check" style="font-size:16px;vertical-align:-2px;margin-right:4px"></i>ワークアウトを保存</button>
+</div>
+
+<div class="ms" id="s-hist" style="display:none;padding:0 20px 20px">
+<div style="padding-top:8px;margin-bottom:14px">
+<h2 class="h" style="font-size:34px;line-height:1">トレーニング<span style="color:#D4FF00">履歴</span></h2>
+</div>
+<div style="display:flex;gap:6px;margin-bottom:18px;overflow-x:auto;padding-bottom:2px">
+<span class="pill on" style="flex-shrink:0">全て</span>
+<span class="pill" style="flex-shrink:0">胸</span>
+<span class="pill" style="flex-shrink:0">背中</span>
+<span class="pill" style="flex-shrink:0">肩</span>
+<span class="pill" style="flex-shrink:0">腕</span>
+<span class="pill" style="flex-shrink:0">脚</span>
+<span class="pill" style="flex-shrink:0">腹</span>
+</div>
+<p style="font-size:12px;color:#6B6B75;margin-bottom:8px;font-weight:500">6月23日（月）</p>
+<div class="card" style="margin-bottom:14px">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+<div style="width:8px;height:8px;border-radius:50%;background:#FF6B6B;flex-shrink:0"></div>
+<p style="font-size:14px;font-weight:500">胸 + 腕トレーニング</p>
+</div>
+<div style="border-left:2px solid #2A2A30;padding-left:14px;margin-left:3px">
+<div style="margin-bottom:10px">
+<div style="display:flex;justify-content:space-between;align-items:center"><p style="font-size:13px">ベンチプレス</p><span style="font-size:11px;color:#6B6B75;background:#141416;padding:2px 8px;border-radius:8px">バーベル</span></div>
+<p style="font-size:12px;color:#D4FF00;margin-top:2px">80kg x 8回 x 3set</p>
+</div>
+<div style="margin-bottom:10px">
+<div style="display:flex;justify-content:space-between;align-items:center"><p style="font-size:13px">ダンベルフライ</p><span style="font-size:11px;color:#6B6B75;background:#141416;padding:2px 8px;border-radius:8px">ダンベル</span></div>
+<p style="font-size:12px;color:#D4FF00;margin-top:2px">14kg x 12回 x 3set</p>
+</div>
+<div>
+<div style="display:flex;justify-content:space-between;align-items:center"><p style="font-size:13px">プッシュダウン</p><span style="font-size:11px;color:#6B6B75;background:#141416;padding:2px 8px;border-radius:8px">ケーブル</span></div>
+<p style="font-size:12px;color:#D4FF00;margin-top:2px">25kg x 12回 x 3set</p>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:0.5px solid #2A2A30;font-size:12px;color:#6B6B75">
+<span>合計 9set</span><span>総ボリューム 1,323kg</span>
+</div>
+</div>
+<p style="font-size:12px;color:#6B6B75;margin-bottom:8px;font-weight:500">6月22日（日）</p>
+<div class="card" style="margin-bottom:14px">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+<div style="width:8px;height:8px;border-radius:50%;background:#4ECDC4;flex-shrink:0"></div>
+<p style="font-size:14px;font-weight:500">背中 + 肩トレーニング</p>
+</div>
+<div style="border-left:2px solid #2A2A30;padding-left:14px;margin-left:3px">
+<div style="margin-bottom:10px">
+<div style="display:flex;justify-content:space-between;align-items:center"><p style="font-size:13px">デッドリフト</p><span style="font-size:11px;color:#6B6B75;background:#141416;padding:2px 8px;border-radius:8px">バーベル</span></div>
+<p style="font-size:12px;color:#D4FF00;margin-top:2px">100kg x 5回 x 4set</p>
+</div>
+<div style="margin-bottom:10px">
+<div style="display:flex;justify-content:space-between;align-items:center"><p style="font-size:13px">ラットプルダウン</p><span style="font-size:11px;color:#6B6B75;background:#141416;padding:2px 8px;border-radius:8px">マシン</span></div>
+<p style="font-size:12px;color:#D4FF00;margin-top:2px">50kg x 10回 x 3set</p>
+</div>
+<div>
+<div style="display:flex;justify-content:space-between;align-items:center"><p style="font-size:13px">サイドレイズ</p><span style="font-size:11px;color:#6B6B75;background:#141416;padding:2px 8px;border-radius:8px">ダンベル</span></div>
+<p style="font-size:12px;color:#D4FF00;margin-top:2px">8kg x 15回 x 4set</p>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:0.5px solid #2A2A30;font-size:12px;color:#6B6B75">
+<span>合計 11set</span><span>総ボリューム 2,980kg</span>
+</div>
+</div>
+<p style="font-size:12px;color:#6B6B75;margin-bottom:8px;font-weight:500">6月21日（土）</p>
+<div class="card" style="margin-bottom:14px">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+<div style="width:8px;height:8px;border-radius:50%;background:#34D399;flex-shrink:0"></div>
+<p style="font-size:14px;font-weight:500">脚トレーニング</p>
+</div>
+<div style="border-left:2px solid #2A2A30;padding-left:14px;margin-left:3px">
+<div style="margin-bottom:10px">
+<div style="display:flex;justify-content:space-between;align-items:center"><p style="font-size:13px">スクワット</p><span style="font-size:11px;color:#6B6B75;background:#141416;padding:2px 8px;border-radius:8px">バーベル</span></div>
+<p style="font-size:12px;color:#D4FF00;margin-top:2px">90kg x 8回 x 4set</p>
+</div>
+<div>
+<div style="display:flex;justify-content:space-between;align-items:center"><p style="font-size:13px">レッグプレス</p><span style="font-size:11px;color:#6B6B75;background:#141416;padding:2px 8px;border-radius:8px">マシン</span></div>
+<p style="font-size:12px;color:#D4FF00;margin-top:2px">120kg x 10回 x 3set</p>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:0.5px solid #2A2A30;font-size:12px;color:#6B6B75">
+<span>合計 7set</span><span>総ボリューム 6,480kg</span>
+</div>
+</div>
+</div>
+
+<div class="nv" id="mnav" style="display:none">
+<button class="ni on" onclick="go('dash')" data-s="dash">
+<i class="ti ti-home"></i><span>ホーム</span>
+</button>
+<button class="ni" onclick="go('rec')" data-s="rec">
+<div style="width:52px;height:52px;border-radius:50%;background:#D4FF00;display:flex;align-items:center;justify-content:center;margin-top:-20px">
+<i class="ti ti-plus" style="font-size:24px;color:#0A0A0B"></i>
+</div>
+<span>記録</span>
+</button>
+<button class="ni" onclick="go('hist')" data-s="hist">
+<i class="ti ti-calendar"></i><span>履歴</span>
+</button>
+</div>
+
+</div>
+</div>
+
+<script>
+var screens=['login','dash','rec','hist'];
+function go(s){
+screens.forEach(function(k){document.getElementById('s-'+k).style.display='none'});
+document.getElementById('s-'+s).style.display=s==='login'?'flex':'block';
+document.getElementById('mnav').style.display=s==='login'?'none':'flex';
+document.querySelectorAll('.ni').forEach(function(b){b.classList.toggle('on',b.dataset.s===s)});
+document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('on',screens[i]===s)});
+}
+go('login');
+</script>
+</body>
+</html>
