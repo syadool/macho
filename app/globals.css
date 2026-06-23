@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0a0a0b;
+  --foreground: #f0f0f0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-macho-black: #0a0a0b;
+  --color-macho-base: #111114;
+  --color-macho-surface: #141416;
+  --color-macho-card: #1a1a1e;
+  --color-macho-border: #2a2a30;
+  --color-macho-text: #f0f0f0;
+  --color-macho-muted: #6b6b75;
+  --color-macho-lime: #d4ff00;
+  --font-sans: "Outfit", "Outfit Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bebas Neue", "Bebas Neue Fallback", Impact, ui-sans-serif, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
