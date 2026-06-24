@@ -46,11 +46,91 @@ export async function updateWorkout(
   });
 
   if (error) {
+    if (isMissingUpdateWorkoutRpcError(error.message)) {
+      const fallback = await updateWorkoutWithLegacySchema(supabase, workoutId, date, exercises);
+      if (!fallback.ok) return fallback;
+
+      revalidateWorkoutPaths(workoutId);
+      return { ok: true };
+    }
+
     return { ok: false, message: error.message };
   }
 
+  revalidateWorkoutPaths(workoutId);
+  return { ok: true };
+}
+
+function isMissingUpdateWorkoutRpcError(message: string) {
+  return (
+    message.includes("Could not find the function public.update_workout_with_details") ||
+    message.includes("Could not find function public.update_workout_with_details")
+  );
+}
+
+function revalidateWorkoutPaths(workoutId: string) {
   revalidatePath("/dashboard");
   revalidatePath("/history");
   revalidatePath(`/history/${workoutId}/edit`);
+}
+
+async function updateWorkoutWithLegacySchema(
+  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
+  workoutId: string,
+  date: string,
+  exercises: NewExercisePayload[],
+): Promise<UpdateWorkoutState> {
+  const cardioExercise = exercises.find((exercise) => exercise.exercise_type === "cardio");
+  if (cardioExercise) {
+    return {
+      ok: false,
+      message: "有酸素の編集にはDBマイグレーションの適用が必要です。先にSupabaseの更新を反映してください。",
+    };
+  }
+
+  const missingMuscle = exercises.find((exercise) => !exercise.muscle_group_id);
+  if (missingMuscle) {
+    return { ok: false, message: "部位を選択してください。" };
+  }
+
+  const { error: workoutError } = await supabase.from("workouts").update({ date }).eq("id", workoutId);
+  if (workoutError) return { ok: false, message: workoutError.message };
+
+  const { error: deleteError } = await supabase.from("workout_exercises").delete().eq("workout_id", workoutId);
+  if (deleteError) return { ok: false, message: deleteError.message };
+
+  const exerciseRows = exercises.map((exercise, index) => ({
+    workout_id: workoutId,
+    exercise_name: exercise.exercise_name,
+    muscle_group_id: exercise.muscle_group_id,
+    muscle_sub_group_id: exercise.muscle_sub_group_ids[0] ?? null,
+    equipment_id: exercise.equipment_id,
+    sort_order: index + 1,
+  }));
+
+  const { data: insertedExercises, error: exerciseError } = await supabase
+    .from("workout_exercises")
+    .insert(exerciseRows)
+    .select("id,sort_order");
+
+  if (exerciseError) return { ok: false, message: exerciseError.message };
+
+  const setRows = exercises.flatMap((exercise, exerciseIndex) => {
+    const insertedExercise = insertedExercises?.find((row) => row.sort_order === exerciseIndex + 1);
+    if (!insertedExercise) return [];
+
+    return Array.from({ length: exercise.sets }, (_, index) => ({
+      workout_exercise_id: insertedExercise.id,
+      set_number: index + 1,
+      weight_kg: exercise.weight_kg,
+      reps: exercise.reps,
+    }));
+  });
+
+  if (setRows.length === 0) return { ok: true };
+
+  const { error: setError } = await supabase.from("workout_sets").insert(setRows);
+  if (setError) return { ok: false, message: setError.message };
+
   return { ok: true };
 }
