@@ -79,7 +79,7 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
     const response = await getOpenAIClient().chat.completions.create({
       model: getOpenAIModel(),
       response_format: { type: "json_object" },
-      max_tokens: getAIMaxTokens(),
+      max_completion_tokens: getAIMaxTokens(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
