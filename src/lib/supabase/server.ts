@@ -34,3 +34,16 @@ export async function requireUser() {
 
   return { supabase, user };
 }
+
+export async function requireOnboardedUser() {
+  const result = await requireUser();
+  const { data: profile } = await result.supabase
+    .from("user_profiles")
+    .select("onboarding_completed")
+    .eq("user_id", result.user.id)
+    .maybeSingle();
+
+  if (!profile || profile.onboarding_completed !== true) redirect("/onboarding");
+
+  return result;
+}

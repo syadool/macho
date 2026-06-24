@@ -1,4 +1,4 @@
-import type { Equipment, MuscleGroup } from "@/lib/types";
+import type { Equipment, ExperienceLevel, MuscleGroup, TrainingGoal } from "@/lib/types";
 
 export const MUSCLE_GROUPS: MuscleGroup[] = [
   {
@@ -84,6 +84,19 @@ export const EQUIPMENT: Equipment[] = [
   { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6", name: "EZバー", sort_order: 6 },
   { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa7", name: "スミスマシン", sort_order: 7 },
 ];
+
+export const TRAINING_GOAL_LABELS: Record<TrainingGoal, string> = {
+  hypertrophy: "筋肥大",
+  strength: "筋力向上",
+  fat_loss: "減量",
+  maintenance: "健康維持",
+};
+
+export const EXPERIENCE_LEVEL_LABELS: Record<ExperienceLevel, string> = {
+  beginner: "初心者",
+  intermediate: "中級者",
+  advanced: "上級者",
+};
 
 export function shortMuscleName(name: string) {
   return name === "背中" ? "背" : name;

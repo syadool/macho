@@ -63,3 +63,55 @@ export type NewExercisePayload = {
   distance_km: number | null;
   calories: number | null;
 };
+
+export type TrainingGoal = "hypertrophy" | "strength" | "fat_loss" | "maintenance";
+
+export type ExperienceLevel = "beginner" | "intermediate" | "advanced";
+
+export type UserProfile = {
+  user_id: string;
+  training_goal: TrainingGoal | null;
+  experience_level: ExperienceLevel | null;
+  weekly_frequency: number | null;
+  focus_muscle_group_ids: string[];
+  ai_suggestion_enabled: boolean;
+  onboarding_completed: boolean;
+};
+
+export type TemplateSource = "ai_suggestion" | "manual";
+
+export type TemplateExercise = {
+  id: string;
+  exercise_name: string;
+  muscle_group_id: string | null;
+  muscle_sub_group_id: string | null;
+  equipment_id: string | null;
+  target_sets: number | null;
+  target_reps: number | null;
+  target_weight_kg: number | null;
+  notes: string | null;
+  sort_order: number;
+  muscle_groups?: MuscleGroup | null;
+  muscle_sub_groups?: MuscleSubGroup | null;
+  equipment?: Equipment | null;
+};
+
+export type WorkoutTemplate = {
+  id: string;
+  name: string;
+  source: TemplateSource;
+  source_log_id: string | null;
+  created_at: string;
+  template_exercises: TemplateExercise[];
+};
+
+export type SuggestionExercise = Omit<TemplateExercise, "id" | "sort_order" | "muscle_groups" | "muscle_sub_groups" | "equipment"> & {
+  muscle_group_id: string;
+};
+
+export type SuggestionResult = {
+  suggestion_id: string;
+  overall_comment: string;
+  exercises: SuggestionExercise[];
+  usage: { remaining_today: number; remaining_this_month: number };
+};

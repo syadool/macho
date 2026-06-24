@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Activity, Check, Dumbbell, Minus, Plus } from "lucide-react";
 import { Card, OutlineButton, Pill, PrimaryButton } from "@/components/ui";
-import type { Equipment, ExerciseType, MuscleGroup, NewExercisePayload } from "@/lib/types";
+import type { Equipment, ExerciseType, MuscleGroup, NewExercisePayload, WorkoutTemplate } from "@/lib/types";
 import { shortMuscleName } from "@/lib/constants";
 import { toDateInputValue } from "@/lib/date";
 import { saveWorkout } from "./actions";
@@ -12,9 +12,13 @@ import { saveWorkout } from "./actions";
 export function RecordForm({
   muscleGroups,
   equipment,
+  initialTemplateName,
+  initialExercises,
 }: {
   muscleGroups: MuscleGroup[];
   equipment: Equipment[];
+  initialTemplateName?: string;
+  initialExercises?: WorkoutTemplate["template_exercises"];
 }) {
   const router = useRouter();
   const [workoutDate, setWorkoutDate] = useState(toDateInputValue());
@@ -34,7 +38,7 @@ export function RecordForm({
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [distanceKm, setDistanceKm] = useState(5);
   const [calories, setCalories] = useState(250);
-  const [exercises, setExercises] = useState<NewExercisePayload[]>([]);
+  const [exercises, setExercises] = useState<NewExercisePayload[]>(() => templateExercisesToPayload(initialExercises));
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -114,6 +118,13 @@ export function RecordForm({
           className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-sm text-macho-text outline-none transition focus:border-macho-lime"
         />
       </Card>
+
+      {initialExercises && initialExercises.length > 0 && (
+        <Card className="mt-3 border-macho-lime/50 bg-macho-lime/5">
+          <p className="text-sm font-medium">テンプレート「{initialTemplateName ?? "メニュー"}」を読み込みました</p>
+          <p className="mt-1 text-xs text-macho-muted">重量や回数を調整して保存できます。</p>
+        </Card>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <ModeButton active={exerciseType === "strength"} icon={<Dumbbell size={16} />} onClick={() => chooseExerciseType("strength")}>
@@ -241,6 +252,25 @@ export function RecordForm({
       </PrimaryButton>
     </>
   );
+}
+
+function templateExercisesToPayload(initialExercises?: WorkoutTemplate["template_exercises"]): NewExercisePayload[] {
+  return (initialExercises ?? []).map((exercise) => {
+    const isStrength = Boolean(exercise.muscle_group_id);
+    return {
+      exercise_type: isStrength ? "strength" : "cardio",
+      exercise_name: exercise.exercise_name,
+      muscle_group_id: exercise.muscle_group_id,
+      muscle_sub_group_ids: exercise.muscle_sub_group_id ? [exercise.muscle_sub_group_id] : [],
+      equipment_id: exercise.equipment_id,
+      weight_kg: Number(exercise.target_weight_kg ?? 0),
+      reps: exercise.target_reps ?? 0,
+      sets: isStrength ? exercise.target_sets ?? 1 : 0,
+      duration_minutes: isStrength ? null : 30,
+      distance_km: isStrength ? null : 0,
+      calories: isStrength ? null : 0,
+    };
+  });
 }
 
 function ModeButton({

@@ -4,6 +4,7 @@ import { BottomNav, Card, Pill, PageTitle } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData, getWorkouts } from "@/lib/data";
 import { formatHistoryDate } from "@/lib/date";
+import { requireOnboardedUser } from "@/lib/supabase/server";
 import {
   isCardioExercise,
   primaryMuscle,
@@ -21,6 +22,7 @@ export default async function HistoryPage({
 }: {
   searchParams: Promise<{ muscle?: string }>;
 }) {
+  await requireOnboardedUser();
   const [{ muscleGroups }, workouts] = await Promise.all([getMasterData(), getWorkouts(50)]);
   const { muscle } = await searchParams;
   const filteredWorkouts =

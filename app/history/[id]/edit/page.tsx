@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { BottomNav, PageTitle } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData, getWorkoutById } from "@/lib/data";
+import { requireOnboardedUser } from "@/lib/supabase/server";
 import { EditWorkoutForm } from "./edit-workout-form";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export default async function EditWorkoutPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireOnboardedUser();
   const { id } = await params;
   const [masterData, workout] = await Promise.all([getMasterData(), getWorkoutById(id)]);
 

@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { ChevronRight, Sparkles } from "lucide-react";
+import { BookOpen, ChevronRight, Settings, Sparkles } from "lucide-react";
 import { BottomNav, Card } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
 import { getWorkouts } from "@/lib/data";
 import { formatShortDate, toDateInputValue } from "@/lib/date";
+import { getUserProfile } from "@/lib/profile";
+import { requireOnboardedUser } from "@/lib/supabase/server";
 import { primaryMuscle, workoutCardioMinutes, workoutSetCount, workoutSummary, workoutTitle, workoutVolume } from "@/lib/workouts";
 import { shortMuscleName } from "@/lib/constants";
 
@@ -12,7 +14,8 @@ const WEEK_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const workouts = await getWorkouts(20);
+  await requireOnboardedUser();
+  const [workouts, profile] = await Promise.all([getWorkouts(20), getUserProfile()]);
   const today = toDateInputValue();
   const todayWorkouts = workouts.filter((workout) => workout.date === today);
   const exerciseCount = todayWorkouts.reduce((total, workout) => total + workout.workout_exercises.length, 0);
@@ -25,9 +28,18 @@ export default async function DashboardPage() {
   return (
     <PhoneShell nav={<BottomNav active="dashboard" />}>
       <section className="pt-2">
-        <h1 className="font-display text-[34px] leading-none tracking-[0.04em]">
-          今日の<span className="text-macho-lime">ワークアウト</span>
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-display text-[34px] leading-none tracking-[0.04em]">
+            今日の<span className="text-macho-lime">ワークアウト</span>
+          </h1>
+          <Link
+            href="/settings/profile"
+            className="mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-macho-border text-macho-muted transition hover:border-macho-lime hover:text-macho-lime"
+            aria-label="プロフィール設定"
+          >
+            <Settings size={17} />
+          </Link>
+        </div>
       </section>
 
       <section className="mt-5 grid grid-cols-3 gap-2">
@@ -93,16 +105,44 @@ export default async function DashboardPage() {
 
         {workouts.length === 0 && <EmptyRecord />}
 
-        <Card className="mt-3 flex items-center gap-3 opacity-35">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-macho-lime/10 text-macho-lime">
-            <Sparkles size={20} />
-          </div>
-          <div className="flex-1">
-            <p className="text-[13px] font-medium">AIメニュー提案</p>
-            <p className="text-[11px] text-macho-muted">ChatGPTが次回メニューを提案 (coming soon)</p>
-          </div>
-          <ChevronRight size={16} className="text-macho-muted" />
-        </Card>
+        <Link href="/templates" className="mt-3 block">
+          <Card className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-macho-lime/10 text-macho-lime">
+              <BookOpen size={20} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-medium">テンプレート</p>
+              <p className="text-[11px] text-macho-muted">保存したメニューから記録を開始</p>
+            </div>
+            <ChevronRight size={16} className="text-macho-muted" />
+          </Card>
+        </Link>
+
+        {profile?.ai_suggestion_enabled ? (
+          <Link href="/suggest" className="mt-3 block">
+            <Card className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-macho-lime/10 text-macho-lime">
+                <Sparkles size={20} />
+              </div>
+              <div className="flex-1">
+                <p className="text-[13px] font-medium">AIメニュー提案</p>
+                <p className="text-[11px] text-macho-muted">ChatGPTが次回メニューを提案</p>
+              </div>
+              <ChevronRight size={16} className="text-macho-muted" />
+            </Card>
+          </Link>
+        ) : (
+          <Card className="mt-3 flex items-center gap-3 opacity-35">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-macho-lime/10 text-macho-lime">
+              <Sparkles size={20} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-medium">AIメニュー提案</p>
+              <p className="text-[11px] text-macho-muted">ChatGPTが次回メニューを提案 (coming soon)</p>
+            </div>
+            <ChevronRight size={16} className="text-macho-muted" />
+          </Card>
+        )}
       </section>
     </PhoneShell>
   );
