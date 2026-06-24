@@ -4,18 +4,22 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/supabase/server";
 import type { NewExercisePayload } from "@/lib/types";
 
-export type SaveWorkoutState = {
+export type UpdateWorkoutState = {
   ok: boolean;
   message?: string;
 };
 
-export async function saveWorkout(date: string, exercises: NewExercisePayload[]): Promise<SaveWorkoutState> {
+export async function updateWorkout(
+  workoutId: string,
+  date: string,
+  exercises: NewExercisePayload[],
+): Promise<UpdateWorkoutState> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return { ok: false, message: "トレーニング日を選択してください。" };
   }
 
   if (exercises.length === 0) {
-    return { ok: false, message: "エクササイズを追加してください。" };
+    return { ok: false, message: "エクササイズを1件以上残してください。" };
   }
 
   const { supabase } = await requireUser();
@@ -35,7 +39,8 @@ export async function saveWorkout(date: string, exercises: NewExercisePayload[])
     })),
   }));
 
-  const { error } = await supabase.rpc("create_workout_with_details", {
+  const { error } = await supabase.rpc("update_workout_with_details", {
+    p_workout_id: workoutId,
     p_date: date,
     p_exercises: payload,
   });
@@ -46,5 +51,6 @@ export async function saveWorkout(date: string, exercises: NewExercisePayload[])
 
   revalidatePath("/dashboard");
   revalidatePath("/history");
+  revalidatePath(`/history/${workoutId}/edit`);
   return { ok: true };
 }

@@ -1,9 +1,18 @@
 import Link from "next/link";
+import { Pencil } from "lucide-react";
 import { BottomNav, Card, Pill, PageTitle } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData, getWorkouts } from "@/lib/data";
 import { formatHistoryDate } from "@/lib/date";
-import { primaryMuscle, workoutSetCount, workoutTitle, workoutVolume } from "@/lib/workouts";
+import {
+  isCardioExercise,
+  primaryMuscle,
+  workoutCardioDistance,
+  workoutCardioMinutes,
+  workoutSetCount,
+  workoutTitle,
+  workoutVolume,
+} from "@/lib/workouts";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +24,9 @@ export default async function HistoryPage({
   const [{ muscleGroups }, workouts] = await Promise.all([getMasterData(), getWorkouts(50)]);
   const { muscle } = await searchParams;
   const filteredWorkouts =
-    muscle && muscle !== "all"
+    muscle === "cardio"
+      ? workouts.filter((workout) => workout.workout_exercises.some(isCardioExercise))
+      : muscle && muscle !== "all"
       ? workouts.filter((workout) => workout.workout_exercises.some((exercise) => exercise.muscle_groups?.id === muscle))
       : workouts;
 
@@ -30,6 +41,9 @@ export default async function HistoryPage({
       <div className="mt-3.5 flex gap-1.5 overflow-x-auto pb-0.5">
         <Link href="/history" className="shrink-0">
           <Pill active={!muscle || muscle === "all"}>全て</Pill>
+        </Link>
+        <Link href="/history?muscle=cardio" className="shrink-0">
+          <Pill active={muscle === "cardio"}>有酸素</Pill>
         </Link>
         {muscleGroups.map((group) => (
           <Link key={group.id} href={`/history?muscle=${group.id}`} className="shrink-0">
@@ -47,7 +61,14 @@ export default async function HistoryPage({
               <Card className="mb-3.5">
                 <div className="mb-3 flex items-center gap-2.5">
                   <div className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: muscle?.color ?? "#D4FF00" }} />
-                  <p className="text-sm font-medium">{workoutTitle(workout)}</p>
+                  <p className="flex-1 text-sm font-medium">{workoutTitle(workout)}</p>
+                  <Link
+                    href={`/history/${workout.id}/edit`}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-macho-border text-macho-muted transition hover:border-macho-lime hover:text-macho-lime"
+                    aria-label="記録を編集"
+                  >
+                    <Pencil size={14} />
+                  </Link>
                 </div>
 
                 <div className="ml-[3px] border-l-2 border-macho-border pl-3.5">
@@ -68,14 +89,20 @@ export default async function HistoryPage({
                           )}
                         </div>
                       </div>
-                      <p className="mt-0.5 text-xs text-macho-lime">{describeSets(exercise.workout_sets)}</p>
+                      <p className="mt-0.5 text-xs text-macho-lime">
+                        {isCardioExercise(exercise) ? describeCardio(exercise) : describeSets(exercise.workout_sets)}
+                      </p>
                     </div>
                   ))}
                 </div>
 
                 <div className="mt-3 flex justify-between border-t border-macho-border pt-2.5 text-xs text-macho-muted">
                   <span>合計 {workoutSetCount(workout)}set</span>
-                  <span>総ボリューム {workoutVolume(workout).toLocaleString()}kg</span>
+                  <span>
+                    {workoutCardioMinutes(workout) > 0
+                      ? `${workoutCardioMinutes(workout)}分 / ${formatDistance(workoutCardioDistance(workout))}`
+                      : `総ボリューム ${workoutVolume(workout).toLocaleString()}kg`}
+                  </span>
                 </div>
               </Card>
             </div>
@@ -99,4 +126,22 @@ function describeSets(sets: { weight_kg: number; reps: number }[]) {
   const same = sets.every((set) => Number(set.weight_kg) === Number(first.weight_kg) && set.reps === first.reps);
   if (same) return `${Number(first.weight_kg)}kg x ${first.reps}回 x ${sets.length}set`;
   return sets.map((set) => `${Number(set.weight_kg)}kg x ${set.reps}回`).join(" / ");
+}
+
+function describeCardio(exercise: {
+  duration_minutes: number | null;
+  distance_km: number | null;
+  calories: number | null;
+}) {
+  const values = [
+    exercise.duration_minutes ? `${exercise.duration_minutes}分` : null,
+    exercise.distance_km ? formatDistance(Number(exercise.distance_km)) : null,
+    exercise.calories ? `${exercise.calories}kcal` : null,
+  ].filter(Boolean);
+
+  return values.length > 0 ? values.join(" / ") : "有酸素";
+}
+
+function formatDistance(distance: number) {
+  return `${Number(distance.toFixed(2)).toLocaleString()}km`;
 }

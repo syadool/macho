@@ -27,13 +27,19 @@ export type WorkoutSet = {
   reps: number;
 };
 
+export type ExerciseType = "strength" | "cardio";
+
 export type WorkoutExercise = {
   id: string;
   exercise_name: string;
+  exercise_type: ExerciseType;
   sort_order: number;
   muscle_groups: MuscleGroup | null;
   muscle_sub_groups?: MuscleSubGroup[];
   equipment: Equipment | null;
+  duration_minutes: number | null;
+  distance_km: number | null;
+  calories: number | null;
   workout_sets: WorkoutSet[];
 };
 
@@ -45,11 +51,15 @@ export type Workout = {
 };
 
 export type NewExercisePayload = {
+  exercise_type: ExerciseType;
   exercise_name: string;
-  muscle_group_id: string;
+  muscle_group_id: string | null;
   muscle_sub_group_ids: string[];
   equipment_id: string | null;
   weight_kg: number;
   reps: number;
   sets: number;
+  duration_minutes: number | null;
+  distance_km: number | null;
+  calories: number | null;
 };

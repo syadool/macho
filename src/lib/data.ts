@@ -37,7 +37,7 @@ export async function getWorkouts(limit = 30) {
   const { data } = await supabase
     .from("workouts")
     .select(
-      "id,date,created_at,workout_exercises(id,exercise_name,sort_order,muscle_groups(id,name,name_en,color,sort_order),workout_exercise_sub_groups(muscle_sub_groups(id,muscle_group_id,name,sort_order)),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))",
+      "id,date,created_at,workout_exercises(id,exercise_name,exercise_type,duration_minutes,distance_km,calories,sort_order,muscle_groups(id,name,name_en,color,sort_order),workout_exercise_sub_groups(muscle_sub_groups(id,muscle_group_id,name,sort_order)),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))",
     )
     .eq("user_id", user.id)
     .order("date", { ascending: false })
@@ -45,6 +45,21 @@ export async function getWorkouts(limit = 30) {
     .limit(limit);
 
   return normalizeWorkouts((data as SupabaseWorkout[] | null) ?? []);
+}
+
+export async function getWorkoutById(id: string) {
+  const { supabase, user } = await requireUser();
+  const { data } = await supabase
+    .from("workouts")
+    .select(
+      "id,date,created_at,workout_exercises(id,exercise_name,exercise_type,duration_minutes,distance_km,calories,sort_order,muscle_groups(id,name,name_en,color,sort_order),workout_exercise_sub_groups(muscle_sub_groups(id,muscle_group_id,name,sort_order)),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))",
+    )
+    .eq("user_id", user.id)
+    .eq("id", id)
+    .single();
+
+  const [workout] = normalizeWorkouts(data ? [data as SupabaseWorkout] : []);
+  return workout ?? null;
 }
 
 function normalizeWorkouts(workouts: SupabaseWorkout[]): Workout[] {

@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Minus, Plus } from "lucide-react";
+import { Activity, Check, Dumbbell, Minus, Plus } from "lucide-react";
 import { Card, OutlineButton, Pill, PrimaryButton } from "@/components/ui";
-import type { Equipment, MuscleGroup, NewExercisePayload } from "@/lib/types";
+import type { Equipment, ExerciseType, MuscleGroup, NewExercisePayload } from "@/lib/types";
 import { shortMuscleName } from "@/lib/constants";
 import { toDateInputValue } from "@/lib/date";
 import { saveWorkout } from "./actions";
@@ -18,6 +18,7 @@ export function RecordForm({
 }) {
   const router = useRouter();
   const [workoutDate, setWorkoutDate] = useState(toDateInputValue());
+  const [exerciseType, setExerciseType] = useState<ExerciseType>("strength");
   const [selectedMuscleId, setSelectedMuscleId] = useState(muscleGroups[0]?.id ?? "");
   const selectedMuscle = useMemo(
     () => muscleGroups.find((group) => group.id === selectedMuscleId) ?? muscleGroups[0],
@@ -30,6 +31,9 @@ export function RecordForm({
   const [weight, setWeight] = useState(60);
   const [reps, setReps] = useState(10);
   const [sets, setSets] = useState(3);
+  const [durationMinutes, setDurationMinutes] = useState(30);
+  const [distanceKm, setDistanceKm] = useState(5);
+  const [calories, setCalories] = useState(250);
   const [exercises, setExercises] = useState<NewExercisePayload[]>([]);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -43,22 +47,41 @@ export function RecordForm({
     setSelectedSubIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
 
+  function chooseExerciseType(type: ExerciseType) {
+    setExerciseType(type);
+    if (type === "cardio" && (!exerciseName.trim() || exerciseName === "インクラインベンチプレス")) {
+      setExerciseName("ランニング");
+    }
+    if (type === "strength" && (!exerciseName.trim() || exerciseName === "ランニング")) {
+      setExerciseName("インクラインベンチプレス");
+    }
+  }
+
   function addExercise() {
-    if (!selectedMuscle || !exerciseName.trim()) {
+    if (!exerciseName.trim()) {
       setMessage("エクササイズ名を入力してください。");
+      return;
+    }
+
+    if (exerciseType === "strength" && !selectedMuscle) {
+      setMessage("部位を選択してください。");
       return;
     }
 
     setExercises((current) => [
       ...current,
       {
+        exercise_type: exerciseType,
         exercise_name: exerciseName.trim(),
-        muscle_group_id: selectedMuscle.id,
-        muscle_sub_group_ids: selectedSubIds,
-        equipment_id: selectedEquipmentId,
+        muscle_group_id: exerciseType === "strength" ? selectedMuscle?.id ?? null : null,
+        muscle_sub_group_ids: exerciseType === "strength" ? selectedSubIds : [],
+        equipment_id: exerciseType === "strength" ? selectedEquipmentId : null,
         weight_kg: weight,
         reps,
-        sets,
+        sets: exerciseType === "strength" ? sets : 0,
+        duration_minutes: exerciseType === "cardio" ? durationMinutes : null,
+        distance_km: exerciseType === "cardio" ? distanceKm : null,
+        calories: exerciseType === "cardio" ? calories : null,
       },
     ]);
     setMessage("");
@@ -92,69 +115,93 @@ export function RecordForm({
         />
       </Card>
 
-      <p className="mb-2 mt-4 text-xs font-medium text-macho-muted">部位を選択</p>
-      <div className="grid grid-cols-3 gap-2">
-        {muscleGroups.map((group) => {
-          const active = group.id === selectedMuscleId;
-          return (
-            <button
-              key={group.id}
-              type="button"
-              onClick={() => chooseMuscle(group.id)}
-              className={`rounded-[14px] border p-3.5 text-center transition ${
-                active ? "border-macho-lime bg-macho-lime/5" : "border-macho-border bg-macho-card hover:border-[#555]"
-              }`}
-            >
-              <span className="mb-1 block text-[22px] font-semibold" style={{ color: group.color }}>
-                {shortMuscleName(group.name)}
-              </span>
-              <span className={`text-[11px] ${active ? "text-macho-lime" : "text-macho-muted"}`}>{group.name_en}</span>
-            </button>
-          );
-        })}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <ModeButton active={exerciseType === "strength"} icon={<Dumbbell size={16} />} onClick={() => chooseExerciseType("strength")}>
+          筋トレ
+        </ModeButton>
+        <ModeButton active={exerciseType === "cardio"} icon={<Activity size={16} />} onClick={() => chooseExerciseType("cardio")}>
+          有酸素
+        </ModeButton>
       </div>
 
-      <p className="mb-1.5 mt-3.5 text-xs font-medium text-macho-muted">サブカテゴリ</p>
-      <div className="flex flex-wrap gap-1.5">
-        {subGroups.map((subGroup) => (
-          <Pill key={subGroup.id} active={selectedSubIds.includes(subGroup.id)} onClick={() => toggleSubGroup(subGroup.id)}>
-            {subGroup.name}
-          </Pill>
-        ))}
-      </div>
+      {exerciseType === "strength" && (
+        <>
+          <p className="mb-2 mt-4 text-xs font-medium text-macho-muted">部位を選択</p>
+          <div className="grid grid-cols-3 gap-2">
+            {muscleGroups.map((group) => {
+              const active = group.id === selectedMuscleId;
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => chooseMuscle(group.id)}
+                  className={`rounded-[14px] border p-3.5 text-center transition ${
+                    active ? "border-macho-lime bg-macho-lime/5" : "border-macho-border bg-macho-card hover:border-[#555]"
+                  }`}
+                >
+                  <span className="mb-1 block text-[22px] font-semibold" style={{ color: group.color }}>
+                    {shortMuscleName(group.name)}
+                  </span>
+                  <span className={`text-[11px] ${active ? "text-macho-lime" : "text-macho-muted"}`}>{group.name_en}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="mb-1.5 mt-3.5 text-xs font-medium text-macho-muted">サブカテゴリ</p>
+          <div className="flex flex-wrap gap-1.5">
+            {subGroups.map((subGroup) => (
+              <Pill key={subGroup.id} active={selectedSubIds.includes(subGroup.id)} onClick={() => toggleSubGroup(subGroup.id)}>
+                {subGroup.name}
+              </Pill>
+            ))}
+          </div>
+        </>
+      )}
 
       <Card className="mt-4">
         <label htmlFor="exercise-name" className="mb-1.5 block text-[11px] text-macho-muted">
-          エクササイズ名
+          {exerciseType === "strength" ? "エクササイズ名" : "有酸素種目"}
         </label>
         <input
           id="exercise-name"
           value={exerciseName}
           onChange={(event) => setExerciseName(event.target.value)}
-          placeholder="ベンチプレス"
+          placeholder={exerciseType === "strength" ? "ベンチプレス" : "ランニング"}
           className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-sm text-macho-text outline-none transition placeholder:text-macho-muted focus:border-macho-lime"
         />
       </Card>
 
-      <Card className="mt-2.5">
-        <p className="mb-2 text-[11px] text-macho-muted">器具</p>
-        <div className="flex flex-wrap gap-1.5">
-          {equipment.map((item) => (
-            <Pill key={item.id} active={selectedEquipmentId === item.id} onClick={() => setSelectedEquipmentId(item.id)}>
-              {item.name}
-            </Pill>
-          ))}
-        </div>
-      </Card>
+      {exerciseType === "strength" ? (
+        <>
+          <Card className="mt-2.5">
+            <p className="mb-2 text-[11px] text-macho-muted">器具</p>
+            <div className="flex flex-wrap gap-1.5">
+              {equipment.map((item) => (
+                <Pill key={item.id} active={selectedEquipmentId === item.id} onClick={() => setSelectedEquipmentId(item.id)}>
+                  {item.name}
+                </Pill>
+              ))}
+            </div>
+          </Card>
 
-      <div className="mt-3.5 grid grid-cols-3 gap-2">
-        <Stepper label="重量 (kg)" value={weight} min={0} step={2.5} onChange={setWeight} />
-        <Stepper label="回数" value={reps} min={0} step={1} onChange={setReps} />
-        <Stepper label="セット" value={sets} min={1} step={1} onChange={setSets} />
-      </div>
+          <div className="mt-3.5 grid grid-cols-3 gap-2">
+            <Stepper label="重量 (kg)" value={weight} min={0} step={2.5} onChange={setWeight} />
+            <Stepper label="回数" value={reps} min={0} step={1} onChange={setReps} />
+            <Stepper label="セット" value={sets} min={1} step={1} onChange={setSets} />
+          </div>
+        </>
+      ) : (
+        <div className="mt-3.5 grid grid-cols-3 gap-2">
+          <Stepper label="時間 (分)" value={durationMinutes} min={1} step={5} onChange={setDurationMinutes} />
+          <Stepper label="距離 (km)" value={distanceKm} min={0} step={0.5} onChange={setDistanceKm} />
+          <Stepper label="kcal" value={calories} min={0} step={25} onChange={setCalories} />
+        </div>
+      )}
 
       <div className="mt-3.5">
         {exercises.map((exercise, index) => {
+          const isCardio = exercise.exercise_type === "cardio";
           const muscle = muscleGroups.find((group) => group.id === exercise.muscle_group_id);
           const tool = equipment.find((item) => item.id === exercise.equipment_id);
           const subNames = exercise.muscle_sub_group_ids
@@ -165,9 +212,15 @@ export function RecordForm({
               <div className="h-9 w-1 shrink-0 rounded-full" style={{ backgroundColor: muscle?.color ?? "#D4FF00" }} />
               <div className="flex-1">
                 <p className="text-[13px] font-medium">{exercise.exercise_name}</p>
-                <p className="text-[11px] text-macho-muted">
-                  {tool?.name ?? "器具なし"} ・ {exercise.weight_kg}kg x {exercise.reps}回 x {exercise.sets}set
-                </p>
+                {isCardio ? (
+                  <p className="text-[11px] text-macho-muted">
+                    {exercise.duration_minutes}分 ・ {exercise.distance_km}km ・ {exercise.calories}kcal
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-macho-muted">
+                    {tool?.name ?? "器具なし"} ・ {exercise.weight_kg}kg x {exercise.reps}回 x {exercise.sets}set
+                  </p>
+                )}
                 {subNames.length > 0 && <p className="mt-0.5 text-[11px] text-macho-muted">{subNames.join(" / ")}</p>}
               </div>
               <Check size={18} className="text-macho-lime" />
@@ -187,6 +240,33 @@ export function RecordForm({
         {isPending ? "保存中..." : "ワークアウトを保存"}
       </PrimaryButton>
     </>
+  );
+}
+
+function ModeButton({
+  active,
+  icon,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-12 items-center justify-center gap-2 rounded-[14px] border text-sm font-medium transition ${
+        active
+          ? "border-macho-lime bg-macho-lime/10 text-macho-lime"
+          : "border-macho-border bg-macho-card text-macho-muted hover:text-macho-text"
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
   );
 }
 

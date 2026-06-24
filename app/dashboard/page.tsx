@@ -4,7 +4,7 @@ import { BottomNav, Card } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
 import { getWorkouts } from "@/lib/data";
 import { formatShortDate, toDateInputValue } from "@/lib/date";
-import { primaryMuscle, workoutSetCount, workoutSummary, workoutTitle, workoutVolume } from "@/lib/workouts";
+import { primaryMuscle, workoutCardioMinutes, workoutSetCount, workoutSummary, workoutTitle, workoutVolume } from "@/lib/workouts";
 import { shortMuscleName } from "@/lib/constants";
 
 const WEEK_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
@@ -17,6 +17,7 @@ export default async function DashboardPage() {
   const todayWorkouts = workouts.filter((workout) => workout.date === today);
   const exerciseCount = todayWorkouts.reduce((total, workout) => total + workout.workout_exercises.length, 0);
   const setCount = todayWorkouts.reduce((total, workout) => total + workoutSetCount(workout), 0);
+  const cardioMinutes = todayWorkouts.reduce((total, workout) => total + workoutCardioMinutes(workout), 0);
   const volume = todayWorkouts.reduce((total, workout) => total + workoutVolume(workout), 0);
   const weekly = getWeeklyVolumes(workouts);
   const maxWeekly = Math.max(...weekly.map((item) => item.volume), 1);
@@ -32,7 +33,11 @@ export default async function DashboardPage() {
       <section className="mt-5 grid grid-cols-3 gap-2">
         <StatCard label="エクササイズ" value={exerciseCount || 0} />
         <StatCard label="セット" value={setCount || 0} />
-        <StatCard label="ボリューム" value={(volume / 1000).toFixed(1)} suffix="t" />
+        {volume > 0 ? (
+          <StatCard label="ボリューム" value={(volume / 1000).toFixed(1)} suffix="t" />
+        ) : (
+          <StatCard label="有酸素" value={cardioMinutes || 0} suffix="min" />
+        )}
       </section>
 
       <Card className="mt-[18px]">
@@ -78,7 +83,9 @@ export default async function DashboardPage() {
               </div>
               <div className="shrink-0 text-right">
                 <p className="text-[11px] text-macho-muted">{formatShortDate(workout.date)}</p>
-                <p className="text-xs font-medium text-macho-lime">{workoutSetCount(workout)}set</p>
+                <p className="text-xs font-medium text-macho-lime">
+                  {workoutSetCount(workout) > 0 ? `${workoutSetCount(workout)}set` : `${workoutCardioMinutes(workout)}min`}
+                </p>
               </div>
             </Card>
           );
