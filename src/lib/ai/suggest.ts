@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
+import type { ChatCompletion } from "openai/resources/chat/completions";
 import { getAIMaxTokens, getAIRateLimitPerDay, getAIRateLimitPerMonth, getCacheTtlHours, getMonthlyCallLimit, getOpenAIModel } from "@/lib/ai/env";
 import { getOpenAIClient } from "@/lib/ai/client";
-import { buildSystemPrompt, buildUserPrompt } from "@/lib/ai/prompt";
+import { SUGGESTION_RESPONSE_SCHEMA, buildSystemPrompt, buildUserPrompt } from "@/lib/ai/prompt";
 import { getMasterData, getWorkouts } from "@/lib/data";
 import { getUserProfile } from "@/lib/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -76,18 +77,29 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
       equipment,
     });
 
+    const maxCompletionTokens = getAIMaxTokens();
     const response = await getOpenAIClient().chat.completions.create({
       model: getOpenAIModel(),
-      response_format: { type: "json_object" },
-      max_completion_tokens: getAIMaxTokens(),
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "workout_suggestion",
+          schema: SUGGESTION_RESPONSE_SCHEMA,
+          strict: true,
+        },
+      },
+      reasoning_effort: "low",
+      verbosity: "low",
+      max_completion_tokens: maxCompletionTokens,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error("OpenAI response is empty");
+    const choice = response.choices[0];
+    const content = extractMessageContent(choice?.message?.content);
+    if (!content) throw new Error(buildEmptyOpenAIResponseMessage(choice, maxCompletionTokens));
 
     const payload = validateSuggestionPayload(JSON.parse(content) as unknown, muscleGroups, equipment);
     const promptTokens = response.usage?.prompt_tokens ?? null;
@@ -333,6 +345,35 @@ function validateSuggestionPayload(raw: unknown, muscleGroups: MuscleGroup[], eq
     overall_comment: overallComment || "次回メニューを提案しました。",
     exercises,
   };
+}
+
+function extractMessageContent(content: unknown) {
+  if (typeof content === "string") return content.trim() || null;
+  if (!Array.isArray(content)) return null;
+
+  const text = content
+    .map((part) => {
+      if (!isRecord(part)) return "";
+      return typeof part.text === "string" ? part.text : "";
+    })
+    .join("")
+    .trim();
+
+  return text || null;
+}
+
+function buildEmptyOpenAIResponseMessage(
+  choice: ChatCompletion.Choice | undefined,
+  maxCompletionTokens: number,
+) {
+  if (!choice) return "OpenAI response did not include a choice";
+  const refusal = choice.message.refusal?.trim();
+  if (refusal) return `OpenAI refused the request: ${refusal}`;
+  if (choice.finish_reason === "length") {
+    return `OpenAI response was truncated before JSON output. Increase AI_MAX_TOKENS above ${maxCompletionTokens}.`;
+  }
+  if (choice.finish_reason === "content_filter") return "OpenAI response was blocked by the content filter";
+  return `OpenAI response is empty (finish_reason: ${choice.finish_reason})`;
 }
 
 function estimateCost(promptTokens: number | null, completionTokens: number | null) {

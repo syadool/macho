@@ -12,6 +12,7 @@ export type PromptInput = {
 
 export const SUGGESTION_RESPONSE_SCHEMA = {
   type: "object",
+  additionalProperties: false,
   required: ["overall_comment", "exercises"],
   properties: {
     overall_comment: { type: "string" },
@@ -21,7 +22,18 @@ export const SUGGESTION_RESPONSE_SCHEMA = {
       maxItems: 5,
       items: {
         type: "object",
+        additionalProperties: false,
         required: ["exercise_name", "muscle_group_id", "muscle_sub_group_id", "equipment_id", "target_sets", "target_reps", "target_weight_kg", "notes"],
+        properties: {
+          exercise_name: { type: "string" },
+          muscle_group_id: { type: "string" },
+          muscle_sub_group_id: { type: ["string", "null"] },
+          equipment_id: { type: ["string", "null"] },
+          target_sets: { type: "integer", minimum: 1 },
+          target_reps: { type: "integer", minimum: 1 },
+          target_weight_kg: { type: ["number", "null"] },
+          notes: { type: ["string", "null"] },
+        },
       },
     },
   },

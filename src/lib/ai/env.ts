@@ -25,5 +25,5 @@ export function getCacheTtlHours() {
 }
 
 export function getAIMaxTokens() {
-  return Number(process.env.AI_MAX_TOKENS ?? 1000);
+  return Math.max(Number(process.env.AI_MAX_TOKENS ?? 3000), 3000);
 }
