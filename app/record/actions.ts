@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cardioSchemaMigrationMessage, isMissingCardioSchemaError } from "@/lib/supabase/schema-errors";
 import { requireUser } from "@/lib/supabase/server";
 import type { NewExercisePayload } from "@/lib/types";
 
@@ -41,10 +42,22 @@ export async function saveWorkout(date: string, exercises: NewExercisePayload[])
   });
 
   if (error) {
+    if (hasCardioExercise(exercises) && (isMissingCardioSchemaError(error.message) || isLegacyCardioInsertError(error.message))) {
+      return { ok: false, message: cardioSchemaMigrationMessage() };
+    }
+
     return { ok: false, message: error.message };
   }
 
   revalidatePath("/dashboard");
   revalidatePath("/history");
   return { ok: true };
+}
+
+function hasCardioExercise(exercises: NewExercisePayload[]) {
+  return exercises.some((exercise) => exercise.exercise_type === "cardio");
+}
+
+function isLegacyCardioInsertError(message: string) {
+  return message.includes('null value in column "muscle_group_id"') || message.includes("Muscle group is required for strength exercise");
 }

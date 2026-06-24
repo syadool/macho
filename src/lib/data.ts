@@ -69,6 +69,35 @@ export async function getWorkouts(limit = 30) {
   return normalizeWorkouts((data as SupabaseWorkout[] | null) ?? []);
 }
 
+export async function getAllWorkouts() {
+  const { supabase, user } = await requireUser();
+  const pageSize = 1000;
+  const workouts: SupabaseWorkout[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from("workouts")
+      .select(WORKOUT_SELECT)
+      .eq("user_id", user.id)
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (isLegacyWorkoutSchemaError(error)) {
+      return getAllLegacyWorkouts(user.id);
+    }
+
+    if (error) throw new Error(error.message);
+
+    const page = (data as SupabaseWorkout[] | null) ?? [];
+    workouts.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  return normalizeWorkouts(workouts);
+}
+
 export async function getWorkoutById(id: string) {
   const { supabase, user } = await requireUser();
   const { data, error } = await supabase
@@ -139,4 +168,29 @@ function isLegacyWorkoutSchemaError(error: { code?: string; message?: string } |
         error.message?.includes("calories") ||
         error.message?.includes("workout_exercise_sub_groups")),
   );
+}
+
+async function getAllLegacyWorkouts(userId: string) {
+  const { supabase } = await requireUser();
+  const pageSize = 1000;
+  const workouts: SupabaseWorkout[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from("workouts")
+      .select(LEGACY_WORKOUT_SELECT)
+      .eq("user_id", userId)
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (error) throw new Error(error.message);
+
+    const page = (data as SupabaseWorkout[] | null) ?? [];
+    workouts.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  return normalizeWorkouts(workouts);
 }

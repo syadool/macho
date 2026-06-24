@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cardioSchemaMigrationMessage, isMissingCardioSchemaError } from "@/lib/supabase/schema-errors";
 import { requireUser } from "@/lib/supabase/server";
 import type { NewExercisePayload } from "@/lib/types";
 
@@ -46,6 +47,10 @@ export async function updateWorkout(
   });
 
   if (error) {
+    if (hasCardioExercise(exercises) && isMissingCardioSchemaError(error.message)) {
+      return { ok: false, message: cardioSchemaMigrationMessage() };
+    }
+
     if (isMissingUpdateWorkoutRpcError(error.message)) {
       const fallback = await updateWorkoutWithLegacySchema(supabase, workoutId, date, exercises);
       if (!fallback.ok) return fallback;
@@ -66,6 +71,10 @@ function isMissingUpdateWorkoutRpcError(message: string) {
     message.includes("Could not find the function public.update_workout_with_details") ||
     message.includes("Could not find function public.update_workout_with_details")
   );
+}
+
+function hasCardioExercise(exercises: NewExercisePayload[]) {
+  return exercises.some((exercise) => exercise.exercise_type === "cardio");
 }
 
 function revalidateWorkoutPaths(workoutId: string) {

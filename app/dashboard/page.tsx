@@ -2,7 +2,7 @@ import Link from "next/link";
 import { BookOpen, ChevronRight, Settings, Sparkles } from "lucide-react";
 import { BottomNav, Card } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
-import { getWorkouts } from "@/lib/data";
+import { getAllWorkouts } from "@/lib/data";
 import { formatShortDate, toDateInputValue } from "@/lib/date";
 import { getUserProfile } from "@/lib/profile";
 import { requireOnboardedUser } from "@/lib/supabase/server";
@@ -10,18 +10,30 @@ import { primaryMuscle, workoutCardioMinutes, workoutSetCount, workoutSummary, w
 import { shortMuscleName } from "@/lib/constants";
 
 const WEEK_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
+const RANGE_OPTIONS = [
+  { value: "today", label: "今日" },
+  { value: "week", label: "今週" },
+  { value: "year", label: "今年" },
+  { value: "all", label: "累計" },
+] as const;
+
+type DashboardRange = (typeof RANGE_OPTIONS)[number]["value"];
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>;
+}) {
   await requireOnboardedUser();
-  const [workouts, profile] = await Promise.all([getWorkouts(20), getUserProfile()]);
-  const today = toDateInputValue();
-  const todayWorkouts = workouts.filter((workout) => workout.date === today);
-  const exerciseCount = todayWorkouts.reduce((total, workout) => total + workout.workout_exercises.length, 0);
-  const setCount = todayWorkouts.reduce((total, workout) => total + workoutSetCount(workout), 0);
-  const cardioMinutes = todayWorkouts.reduce((total, workout) => total + workoutCardioMinutes(workout), 0);
-  const volume = todayWorkouts.reduce((total, workout) => total + workoutVolume(workout), 0);
+  const [{ range }, workouts, profile] = await Promise.all([searchParams, getAllWorkouts(), getUserProfile()]);
+  const activeRange = parseDashboardRange(range);
+  const rangeWorkouts = filterWorkoutsByRange(workouts, activeRange);
+  const exerciseCount = rangeWorkouts.reduce((total, workout) => total + workout.workout_exercises.length, 0);
+  const setCount = rangeWorkouts.reduce((total, workout) => total + workoutSetCount(workout), 0);
+  const cardioMinutes = rangeWorkouts.reduce((total, workout) => total + workoutCardioMinutes(workout), 0);
+  const volume = rangeWorkouts.reduce((total, workout) => total + workoutVolume(workout), 0);
   const weekly = getWeeklyVolumes(workouts);
   const maxWeekly = Math.max(...weekly.map((item) => item.volume), 1);
 
@@ -42,15 +54,27 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      <RangeTabs activeRange={activeRange} />
+
       <section className="mt-5 grid grid-cols-3 gap-2">
-        <StatCard label="エクササイズ" value={exerciseCount || 0} />
+        <StatCard label="記録" value={rangeWorkouts.length || 0} />
+        <StatCard label="種目" value={exerciseCount || 0} />
         <StatCard label="セット" value={setCount || 0} />
-        {volume > 0 ? (
-          <StatCard label="ボリューム" value={(volume / 1000).toFixed(1)} suffix="t" />
-        ) : (
-          <StatCard label="有酸素" value={cardioMinutes || 0} suffix="min" />
-        )}
       </section>
+
+      <Card className="mt-2.5 flex items-center justify-between gap-3 px-3.5 py-3">
+        <div>
+          <p className="text-[11px] text-macho-muted">{getRangeLabel(activeRange)}のボリューム</p>
+          <p className="mt-0.5 font-display text-[32px] leading-none tracking-[0.04em] text-macho-lime">
+            {formatVolume(volume)}
+            <span className="font-sans text-sm normal-case tracking-normal">kg</span>
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-[11px] text-macho-muted">有酸素</p>
+          <p className="mt-1 text-sm font-semibold text-macho-text">{cardioMinutes || 0}min</p>
+        </div>
+      </Card>
 
       <Card className="mt-[18px]">
         <p className="mb-3.5 text-[13px] font-medium">今週のアクティビティ</p>
@@ -148,6 +172,27 @@ export default async function DashboardPage() {
   );
 }
 
+function RangeTabs({ activeRange }: { activeRange: DashboardRange }) {
+  return (
+    <div className="mt-4 grid grid-cols-4 gap-1 rounded-[14px] border border-macho-border bg-macho-surface p-1">
+      {RANGE_OPTIONS.map((option) => (
+        <Link
+          key={option.value}
+          href={option.value === "today" ? "/dashboard" : `/dashboard?range=${option.value}`}
+          className={`flex h-9 items-center justify-center rounded-[10px] text-[12px] font-semibold transition ${
+            activeRange === option.value
+              ? "bg-macho-lime text-macho-black"
+              : "text-macho-muted hover:bg-macho-card hover:text-macho-text"
+          }`}
+          aria-current={activeRange === option.value ? "page" : undefined}
+        >
+          {option.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 function StatCard({ label, value, suffix }: { label: string; value: string | number; suffix?: string }) {
   return (
     <Card className="px-1.5 py-3.5 text-center">
@@ -169,11 +214,52 @@ function EmptyRecord() {
   );
 }
 
-function getWeeklyVolumes(workouts: Awaited<ReturnType<typeof getWorkouts>>) {
+function parseDashboardRange(value: string | undefined): DashboardRange {
+  return RANGE_OPTIONS.some((option) => option.value === value) ? (value as DashboardRange) : "today";
+}
+
+function getRangeLabel(range: DashboardRange) {
+  return RANGE_OPTIONS.find((option) => option.value === range)?.label ?? "今日";
+}
+
+function filterWorkoutsByRange(workouts: Awaited<ReturnType<typeof getAllWorkouts>>, range: DashboardRange) {
   const now = new Date();
-  const monday = new Date(now);
+  const today = toDateInputValue(now);
+
+  if (range === "today") {
+    return workouts.filter((workout) => workout.date === today);
+  }
+
+  if (range === "week") {
+    const monday = getMonday(now);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const start = toDateInputValue(monday);
+    const end = toDateInputValue(sunday);
+    return workouts.filter((workout) => workout.date >= start && workout.date <= end);
+  }
+
+  if (range === "year") {
+    return workouts.filter((workout) => workout.date.startsWith(`${now.getFullYear()}-`));
+  }
+
+  return workouts;
+}
+
+function formatVolume(volume: number) {
+  return Number(volume.toFixed(0)).toLocaleString();
+}
+
+function getMonday(value: Date) {
+  const monday = new Date(value);
   const day = monday.getDay() || 7;
   monday.setDate(monday.getDate() - day + 1);
+  return monday;
+}
+
+function getWeeklyVolumes(workouts: Awaited<ReturnType<typeof getAllWorkouts>>) {
+  const now = new Date();
+  const monday = getMonday(now);
 
   return WEEK_LABELS.map((label, index) => {
     const date = new Date(monday);
