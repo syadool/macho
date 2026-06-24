@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { upsertUserProfile } from "@/lib/profile";
+import { validateEditableProfile } from "@/lib/profile-validation";
 import type { ExperienceLevel, TrainingGoal } from "@/lib/types";
 
 export async function saveProfile(input: {
@@ -10,8 +11,11 @@ export async function saveProfile(input: {
   weekly_frequency: number;
   focus_muscle_group_ids: string[];
 }): Promise<{ ok: boolean; message?: string }> {
+  const validated = validateEditableProfile(input);
+  if (!validated.ok) return validated;
+
   try {
-    await upsertUserProfile(input);
+    await upsertUserProfile(validated.payload);
     revalidatePath("/settings/profile");
     revalidatePath("/dashboard");
     return { ok: true };

@@ -10,14 +10,17 @@ import { saveSuggestionAsTemplateAction } from "../templates/actions";
 export function SuggestForm({
   profile,
   muscleGroups,
+  initialUsage,
 }: {
   profile: UserProfile;
   muscleGroups: MuscleGroup[];
+  initialUsage: SuggestionResult["usage"];
 }) {
   const router = useRouter();
   const [targetIds, setTargetIds] = useState<string[]>(profile.focus_muscle_group_ids.length > 0 ? profile.focus_muscle_group_ids : [muscleGroups[0]?.id ?? ""]);
   const [theme, setTheme] = useState("");
   const [suggestion, setSuggestion] = useState<SuggestionResult | null>(null);
+  const [usage, setUsage] = useState(initialUsage);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -47,7 +50,9 @@ export function SuggestForm({
         return;
       }
 
-      setSuggestion((await response.json()) as SuggestionResult);
+      const payload = (await response.json()) as SuggestionResult;
+      setSuggestion(payload);
+      setUsage(payload.usage);
     } catch {
       setError("通信に失敗しました。時間をおいて再度お試しください。");
     } finally {
@@ -63,8 +68,7 @@ export function SuggestForm({
     startTransition(async () => {
       const result = await saveSuggestionAsTemplateAction({
         name,
-        source_log_id: suggestion.suggestion_id,
-        exercises: suggestion.exercises,
+        suggestion_id: suggestion.suggestion_id,
       });
 
       if (result.ok && result.templateId) {
@@ -87,6 +91,13 @@ export function SuggestForm({
             </Pill>
           ))}
         </div>
+      </Card>
+
+      <Card>
+        <p className="text-xs font-medium text-macho-muted">残り回数</p>
+        <p className="mt-1 text-sm font-semibold">
+          今日 {usage.remaining_today}回 / 月 {usage.remaining_this_month}回
+        </p>
       </Card>
 
       <Card>

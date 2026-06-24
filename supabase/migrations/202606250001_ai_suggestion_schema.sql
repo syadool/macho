@@ -23,7 +23,7 @@ create table if not exists public.ai_suggestion_logs (
   completion_tokens int,
   total_tokens int,
   cost_usd decimal(10, 6),
-  status text not null check (status in ('success', 'cached', 'rate_limited', 'forbidden', 'error')),
+  status text not null check (status in ('pending', 'success', 'cached', 'rate_limited', 'forbidden', 'error')),
   error_message text,
   created_at timestamptz not null default now()
 );
@@ -48,7 +48,11 @@ create table if not exists public.template_exercises (
   target_reps int,
   target_weight_kg decimal(7, 2),
   notes text,
-  sort_order int not null default 1
+  sort_order int not null default 1,
+  constraint template_exercises_target_sets_check check (target_sets between 1 and 20 or target_sets is null),
+  constraint template_exercises_target_reps_check check (target_reps between 1 and 200 or target_reps is null),
+  constraint template_exercises_target_weight_kg_check check (target_weight_kg between 0 and 1000 or target_weight_kg is null),
+  constraint template_exercises_notes_length_check check (char_length(notes) <= 400 or notes is null)
 );
 
 create index if not exists ai_suggestion_logs_user_created_idx on public.ai_suggestion_logs(user_id, created_at desc);

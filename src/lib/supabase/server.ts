@@ -47,3 +47,25 @@ export async function requireOnboardedUser() {
 
   return result;
 }
+
+export async function requireApiOnboardedUser() {
+  if (!hasSupabaseEnv()) return { ok: false as const, status: 401 as const };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { ok: false as const, status: 401 as const };
+
+  const { data: profile, error } = await supabase
+    .from("user_profiles")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!profile || profile.onboarding_completed !== true) return { ok: false as const, status: 403 as const };
+
+  return { ok: true as const, supabase, user, profile };
+}
