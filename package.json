@@ -15,7 +15,8 @@
     "next": "^15.5.19",
     "openai": "^6.44.0",
     "react": "^19.1.2",
-    "react-dom": "^19.1.2"
+    "react-dom": "^19.1.2",
+    "stripe": "^22.3.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

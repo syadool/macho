@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RotateCcw, Save, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, RotateCcw, Save, Sparkles, X } from "lucide-react";
 import { Card, OutlineButton, Pill, PrimaryButton } from "@/components/ui";
 import type { MuscleGroup, SuggestionResult, UserProfile } from "@/lib/types";
 import { saveSuggestionAsTemplateAction } from "../templates/actions";
@@ -82,6 +83,18 @@ export function SuggestForm({
 
   return (
     <section className="mt-4 space-y-3">
+      {profile.subscription_tier === "free" && (
+        <Link href="/pricing" className="block">
+          <Card className="flex items-center justify-between gap-3 border-macho-lime/50 bg-macho-lime/10">
+            <div>
+              <p className="text-xs font-semibold text-macho-lime">Freeプラン</p>
+              <p className="mt-1 text-[11px] text-macho-muted">月10回を超える日は、Plusで100回まで増やせます。</p>
+            </div>
+            <ArrowUpRight size={17} className="shrink-0 text-macho-lime" />
+          </Card>
+        </Link>
+      )}
+
       <Card>
         <p className="mb-2 text-sm font-medium">鍛えたい部位</p>
         <div className="flex flex-wrap gap-1.5">
@@ -94,9 +107,23 @@ export function SuggestForm({
       </Card>
 
       <Card>
-        <p className="text-xs font-medium text-macho-muted">残り回数</p>
-        <p className="mt-1 text-sm font-semibold">
-          今日 {usage.remaining_today}回 / 月 {usage.remaining_this_month}回
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium text-macho-muted">AI利用状況</p>
+            <p className="mt-1 text-sm font-semibold">
+              今月 {usage.used_this_month}/{usage.limit_this_month}回
+            </p>
+          </div>
+          <p className="text-xs font-semibold text-macho-lime">残り {usage.remaining_this_month}回</p>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-macho-surface">
+          <div
+            className="h-full rounded-full bg-macho-lime transition-all"
+            style={{ width: `${Math.min(100, Math.round((usage.used_this_month / usage.limit_this_month) * 100))}%` }}
+          />
+        </div>
+        <p className="mt-2 text-[11px] text-macho-muted">
+          今日 {usage.used_today}/{usage.limit_today}回
         </p>
       </Card>
 
@@ -113,7 +140,16 @@ export function SuggestForm({
         />
       </Card>
 
-      {error && <p className="text-xs text-[#FF6B6B]">{error}</p>}
+      {error && (
+        <div className="space-y-2">
+          <p className="text-xs text-[#FF6B6B]">{error}</p>
+          {error.includes("上限") && (
+            <Link href="/pricing" className="inline-flex items-center gap-1 text-xs font-semibold text-macho-lime">
+              アップグレードして回数を増やす <ArrowUpRight size={12} />
+            </Link>
+          )}
+        </div>
+      )}
 
       <PrimaryButton onClick={() => generate(false)} disabled={loading || targetIds.length === 0}>
         <Sparkles size={16} className="mr-1 inline align-[-3px]" />

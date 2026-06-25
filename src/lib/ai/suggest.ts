@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { ChatCompletion } from "openai/resources/chat/completions";
-import { getAIMaxTokens, getAIRateLimitPerDay, getAIRateLimitPerMonth, getCacheTtlHours, getMonthlyCallLimit, getOpenAIModel } from "@/lib/ai/env";
+import { getAIMaxTokens, getAILimitsForTier, getCacheTtlHours, getMonthlyCallLimit, getOpenAIModel } from "@/lib/ai/env";
 import { getOpenAIClient } from "@/lib/ai/client";
 import { type AiSuggestionPayload, validateSuggestionPayload } from "@/lib/ai/suggestion-validation";
 import { SUGGESTION_RESPONSE_SCHEMA, buildSystemPrompt, buildUserPrompt } from "@/lib/ai/prompt";
@@ -8,7 +8,7 @@ import { getMasterData, getWorkouts } from "@/lib/data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireApiOnboardedUser } from "@/lib/supabase/server";
 import { toDateInputValue } from "@/lib/date";
-import type { SuggestionResult, Workout } from "@/lib/types";
+import type { AIUsage, SubscriptionTier, SuggestionResult, Workout } from "@/lib/types";
 
 export type GenerateSuggestionInput = {
   targetMuscleGroupIds: string[];
@@ -61,7 +61,7 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
       return { kind: "forbidden" };
     }
 
-    const reservation = await reserveUsageSlot(user.id, inputHash, requestPayload);
+    const reservation = await reserveUsageSlot(user.id, inputHash, requestPayload, profile.subscription_tier);
     if (reservation.kind === "rate_limited") return reservation;
     reservedLogId = reservation.logId;
 
@@ -120,7 +120,7 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
       totalTokens,
       costUsd,
     });
-    const usage = await getRemainingUsage(user.id);
+    const usage = await getRemainingUsage(user.id, profile.subscription_tier);
 
     return {
       kind: "success",
@@ -165,40 +165,32 @@ async function reserveUsageSlot(
   userId: string,
   inputHash: string,
   requestPayload: Record<string, unknown>,
+  tier: SubscriptionTier,
 ): Promise<{ kind: "reserved"; logId: string } | Extract<GenerateSuggestionResult, { kind: "rate_limited" }>> {
   const logId = await insertLog({ userId, inputHash, requestPayload, status: "pending" });
-  const dailyLimit = getAIRateLimitPerDay();
-  const monthlyLimit = getAIRateLimitPerMonth();
+  const { daily: dailyLimit, monthly: monthlyLimit } = getAILimitsForTier(tier);
   const globalLimit = getMonthlyCallLimit();
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const startOfMonth = new Date(startOfDay.getFullYear(), startOfDay.getMonth(), 1);
+  const usageWindow = getJstUsageWindow();
 
   const [dailyCount, monthlyCount, globalCount] = await Promise.all([
-    countLogs({ userId, since: startOfDay.toISOString(), statuses: ["success", "cached", "pending"] }),
-    countLogs({ userId, since: startOfMonth.toISOString(), statuses: ["success", "cached", "pending"] }),
-    countLogs({ since: startOfMonth.toISOString(), statuses: ["success", "pending"] }),
+    countLogs({ userId, since: usageWindow.startOfDay.toISOString(), statuses: ["success", "cached", "pending"] }),
+    countLogs({ userId, since: usageWindow.startOfMonth.toISOString(), statuses: ["success", "cached", "pending"] }),
+    countLogs({ since: usageWindow.startOfMonth.toISOString(), statuses: ["success", "pending"] }),
   ]);
 
   if (dailyCount > dailyLimit) {
-    const resetAt = new Date(startOfDay);
-    resetAt.setDate(resetAt.getDate() + 1);
     await updateLog(logId, userId, { userId, inputHash, requestPayload, status: "rate_limited" }).catch(() => undefined);
-    return { kind: "rate_limited", resetAt: resetAt.toISOString(), scope: "daily" };
+    return { kind: "rate_limited", resetAt: usageWindow.nextDay.toISOString(), scope: "daily" };
   }
 
   if (monthlyCount > monthlyLimit) {
-    const resetAt = new Date(startOfMonth);
-    resetAt.setMonth(resetAt.getMonth() + 1);
     await updateLog(logId, userId, { userId, inputHash, requestPayload, status: "rate_limited" }).catch(() => undefined);
-    return { kind: "rate_limited", resetAt: resetAt.toISOString(), scope: "monthly" };
+    return { kind: "rate_limited", resetAt: usageWindow.nextMonth.toISOString(), scope: "monthly" };
   }
 
   if (globalCount > globalLimit) {
-    const resetAt = new Date(startOfMonth);
-    resetAt.setMonth(resetAt.getMonth() + 1);
     await updateLog(logId, userId, { userId, inputHash, requestPayload, status: "rate_limited" }).catch(() => undefined);
-    return { kind: "rate_limited", resetAt: resetAt.toISOString(), scope: "global" };
+    return { kind: "rate_limited", resetAt: usageWindow.nextMonth.toISOString(), scope: "global" };
   }
 
   return { kind: "reserved", logId };
@@ -296,18 +288,46 @@ async function updateLog(id: string, userId: string, input: LogInsertInput) {
   if (error) throw new Error(error.message);
 }
 
-export async function getRemainingUsage(userId: string) {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const startOfMonth = new Date(startOfDay.getFullYear(), startOfDay.getMonth(), 1);
+export async function getRemainingUsage(userId: string, tier?: SubscriptionTier): Promise<AIUsage> {
+  const activeTier = tier ?? (await getSubscriptionTier(userId));
+  const { daily: dailyLimit, monthly: monthlyLimit } = getAILimitsForTier(activeTier);
+  const usageWindow = getJstUsageWindow();
   const [dailyCount, monthlyCount] = await Promise.all([
-    countLogs({ userId, since: startOfDay.toISOString(), statuses: ["success", "cached", "pending"] }),
-    countLogs({ userId, since: startOfMonth.toISOString(), statuses: ["success", "cached", "pending"] }),
+    countLogs({ userId, since: usageWindow.startOfDay.toISOString(), statuses: ["success", "cached", "pending"] }),
+    countLogs({ userId, since: usageWindow.startOfMonth.toISOString(), statuses: ["success", "cached", "pending"] }),
   ]);
 
   return {
-    remaining_today: Math.max(0, getAIRateLimitPerDay() - dailyCount),
-    remaining_this_month: Math.max(0, getAIRateLimitPerMonth() - monthlyCount),
+    used_today: dailyCount,
+    limit_today: dailyLimit,
+    remaining_today: Math.max(0, dailyLimit - dailyCount),
+    used_this_month: monthlyCount,
+    limit_this_month: monthlyLimit,
+    remaining_this_month: Math.max(0, monthlyLimit - monthlyCount),
+    reset_at: usageWindow.nextMonth.toISOString(),
+  };
+}
+
+async function getSubscriptionTier(userId: string): Promise<SubscriptionTier> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("user_profiles").select("subscription_tier").eq("user_id", userId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data?.subscription_tier as SubscriptionTier | null) ?? "free";
+}
+
+function getJstUsageWindow() {
+  const now = new Date();
+  const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const startOfDayJst = Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate()) - 9 * 60 * 60 * 1000;
+  const startOfMonthJst = Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), 1) - 9 * 60 * 60 * 1000;
+  const nextDayJst = Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate() + 1) - 9 * 60 * 60 * 1000;
+  const nextMonthJst = Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth() + 1, 1) - 9 * 60 * 60 * 1000;
+
+  return {
+    startOfDay: new Date(startOfDayJst),
+    startOfMonth: new Date(startOfMonthJst),
+    nextDay: new Date(nextDayJst),
+    nextMonth: new Date(nextMonthJst),
   };
 }
 

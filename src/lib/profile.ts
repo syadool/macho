@@ -1,7 +1,9 @@
 import { requireUser } from "@/lib/supabase/server";
 import type { UserProfile } from "@/lib/types";
 
-type EditableProfileInput = Partial<Omit<UserProfile, "user_id" | "ai_suggestion_enabled">>;
+type EditableProfileInput = Partial<
+  Omit<UserProfile, "user_id" | "ai_suggestion_enabled" | "subscription_tier" | "stripe_customer_id" | "subscription_status" | "subscription_id" | "current_period_end">
+>;
 
 export async function getUserProfile(): Promise<UserProfile | null> {
   const { supabase, user } = await requireUser();

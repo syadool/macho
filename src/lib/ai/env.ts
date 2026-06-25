@@ -1,3 +1,5 @@
+import type { SubscriptionTier } from "@/lib/types";
+
 export function getOpenAIApiKey() {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY is not set");
@@ -14,6 +16,17 @@ export function getAIRateLimitPerDay() {
 
 export function getAIRateLimitPerMonth() {
   return Number(process.env.AI_RATE_LIMIT_PER_MONTH ?? 100);
+}
+
+export function getAILimitsForTier(tier: SubscriptionTier | null | undefined) {
+  const limits: Record<SubscriptionTier, { daily: number; monthly: number }> = {
+    free: { daily: 5, monthly: 10 },
+    go: { daily: 10, monthly: 40 },
+    plus: { daily: 20, monthly: 100 },
+    pro: { daily: 30, monthly: 200 },
+  };
+
+  return limits[tier ?? "free"] ?? limits.free;
 }
 
 export function getMonthlyCallLimit() {
