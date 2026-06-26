@@ -1,9 +1,17 @@
 import crypto from "node:crypto";
 import type { ChatCompletion } from "openai/resources/chat/completions";
-import { getAIMaxTokens, getAILimitsForTier, getCacheTtlHours, getMonthlyCallLimit, getOpenAIModel } from "@/lib/ai/env";
+import {
+  getAIMaxTokens,
+  getAILimitsForTier,
+  getCacheTtlHours,
+  getMonthlyCallLimit,
+  getOpenAIModel,
+  getPendingReservationTtlMinutes,
+} from "@/lib/ai/env";
 import { getOpenAIClient } from "@/lib/ai/client";
 import { type AiSuggestionPayload, validateSuggestionPayload } from "@/lib/ai/suggestion-validation";
 import { SUGGESTION_RESPONSE_SCHEMA, buildSystemPrompt, buildUserPrompt } from "@/lib/ai/prompt";
+import { getEntitledSubscriptionTier } from "@/lib/billing/plans";
 import { getMasterData, getWorkouts } from "@/lib/data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireApiOnboardedUser } from "@/lib/supabase/server";
@@ -21,6 +29,7 @@ export type GenerateSuggestionResult =
   | { kind: "unauthorized" }
   | { kind: "not_onboarded" }
   | { kind: "forbidden" }
+  | { kind: "invalid_input"; message: string }
   | { kind: "rate_limited"; resetAt: string; scope: "daily" | "monthly" | "global" }
   | { kind: "error"; message: string };
 
@@ -61,14 +70,21 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
       return { kind: "forbidden" };
     }
 
-    const reservation = await reserveUsageSlot(user.id, inputHash, requestPayload, profile.subscription_tier);
+    const { muscleGroups, equipment } = await getMasterData();
+    const validMuscleIds = new Set(muscleGroups.map((group) => group.id));
+    if (sanitizedInput.targetMuscleGroupIds.some((id) => !validMuscleIds.has(id))) {
+      return { kind: "invalid_input", message: "指定された部位が見つかりません。" };
+    }
+
+    const entitlementTier = getEntitledSubscriptionTier(profile.subscription_tier, profile.subscription_status);
+    const reservation = await reserveUsageSlot(user.id, inputHash, requestPayload, entitlementTier);
     if (reservation.kind === "rate_limited") return reservation;
     reservedLogId = reservation.logId;
 
-    const cached = await findCachedSuggestion(user.id, inputHash, requestPayload, reservedLogId);
+    const cached = await findCachedSuggestion(user.id, inputHash, requestPayload, reservedLogId, entitlementTier);
     if (cached) return { kind: "cached", payload: cached };
 
-    const [{ muscleGroups, equipment }, workouts] = await Promise.all([getMasterData(), getWorkouts(20)]);
+    const workouts = await getWorkouts(20);
     const recentWorkoutsSummary = buildRecentWorkoutsSummary(workouts);
     const systemPrompt = buildSystemPrompt();
     const userPrompt = buildUserPrompt({
@@ -104,7 +120,9 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
     const content = extractMessageContent(choice?.message?.content);
     if (!content) throw new Error(buildEmptyOpenAIResponseMessage(choice, maxCompletionTokens));
 
-    const payload = validateSuggestionPayload(JSON.parse(content) as unknown, muscleGroups, equipment);
+    const payload = validateSuggestionPayload(JSON.parse(content) as unknown, muscleGroups, equipment, {
+      targetMuscleGroupIds: sanitizedInput.targetMuscleGroupIds,
+    });
     const promptTokens = response.usage?.prompt_tokens ?? null;
     const completionTokens = response.usage?.completion_tokens ?? null;
     const totalTokens = response.usage?.total_tokens ?? null;
@@ -120,7 +138,7 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
       totalTokens,
       costUsd,
     });
-    const usage = await getRemainingUsage(user.id, profile.subscription_tier);
+    const usage = await getRemainingUsage(user.id, entitlementTier, "active");
 
     return {
       kind: "success",
@@ -196,7 +214,13 @@ async function reserveUsageSlot(
   return { kind: "reserved", logId };
 }
 
-async function findCachedSuggestion(userId: string, inputHash: string, requestPayload: Record<string, unknown>, reservedLogId: string) {
+async function findCachedSuggestion(
+  userId: string,
+  inputHash: string,
+  requestPayload: Record<string, unknown>,
+  reservedLogId: string,
+  tier: SubscriptionTier,
+) {
   const admin = createAdminClient();
   const since = new Date(Date.now() - getCacheTtlHours() * 60 * 60 * 1000).toISOString();
   const { data, error } = await admin
@@ -222,7 +246,7 @@ async function findCachedSuggestion(userId: string, inputHash: string, requestPa
     status: "cached",
     costUsd: 0,
   });
-  const usage = await getRemainingUsage(userId);
+  const usage = await getRemainingUsage(userId, tier, "active");
 
   return {
     suggestion_id: reservedLogId,
@@ -232,7 +256,21 @@ async function findCachedSuggestion(userId: string, inputHash: string, requestPa
   };
 }
 
-async function countLogs(input: { userId?: string; since: string; statuses: LogStatus[] }) {
+async function countLogs(input: { userId?: string; since: string; statuses: LogStatus[] }): Promise<number> {
+  if (input.statuses.includes("pending") && input.statuses.length > 1) {
+    const stableStatuses = input.statuses.filter((status) => status !== "pending");
+    const pendingSince = new Date(Date.now() - getPendingReservationTtlMinutes() * 60 * 1000).toISOString();
+    const [stableCount, pendingCount] = await Promise.all([
+      stableStatuses.length > 0 ? countLogs({ ...input, statuses: stableStatuses }) : 0,
+      countLogs({
+        ...input,
+        since: pendingSince > input.since ? pendingSince : input.since,
+        statuses: ["pending"],
+      }),
+    ]);
+    return stableCount + pendingCount;
+  }
+
   const admin = createAdminClient();
   let query = admin
     .from("ai_suggestion_logs")
@@ -288,8 +326,12 @@ async function updateLog(id: string, userId: string, input: LogInsertInput) {
   if (error) throw new Error(error.message);
 }
 
-export async function getRemainingUsage(userId: string, tier?: SubscriptionTier): Promise<AIUsage> {
-  const activeTier = tier ?? (await getSubscriptionTier(userId));
+export async function getRemainingUsage(
+  userId: string,
+  tier?: SubscriptionTier,
+  status?: "active" | "past_due" | "canceled" | "none",
+): Promise<AIUsage> {
+  const activeTier = tier ? getEntitledSubscriptionTier(tier, status ?? "active") : await getEntitledTierForUser(userId);
   const { daily: dailyLimit, monthly: monthlyLimit } = getAILimitsForTier(activeTier);
   const usageWindow = getJstUsageWindow();
   const [dailyCount, monthlyCount] = await Promise.all([
@@ -308,11 +350,17 @@ export async function getRemainingUsage(userId: string, tier?: SubscriptionTier)
   };
 }
 
-async function getSubscriptionTier(userId: string): Promise<SubscriptionTier> {
+async function getEntitledTierForUser(userId: string): Promise<SubscriptionTier> {
   const admin = createAdminClient();
-  const { data, error } = await admin.from("user_profiles").select("subscription_tier").eq("user_id", userId).maybeSingle();
+  const { data, error } = await admin
+    .from("user_profiles")
+    .select("subscription_tier,subscription_status")
+    .eq("user_id", userId)
+    .maybeSingle();
+
   if (error) throw new Error(error.message);
-  return (data?.subscription_tier as SubscriptionTier | null) ?? "free";
+  const profile = data as { subscription_tier?: SubscriptionTier | null; subscription_status?: "active" | "past_due" | "canceled" | "none" | null } | null;
+  return getEntitledSubscriptionTier(profile?.subscription_tier ?? "free", profile?.subscription_status ?? "none");
 }
 
 function getJstUsageWindow() {

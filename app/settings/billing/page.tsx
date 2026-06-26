@@ -15,7 +15,7 @@ export default async function BillingSettingsPage() {
   const profile = await getUserProfile();
   const tier = profile?.subscription_tier ?? "free";
   const plan = getPlanForTier(tier);
-  const usage = await getRemainingUsage(user.id, tier);
+  const usage = await getRemainingUsage(user.id, tier, profile?.subscription_status ?? "none");
   const progress = usage.limit_this_month > 0 ? Math.min(100, Math.round((usage.used_this_month / usage.limit_this_month) * 100)) : 0;
 
   return (

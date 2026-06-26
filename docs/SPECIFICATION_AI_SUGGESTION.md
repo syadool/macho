@@ -313,11 +313,10 @@ muscle_group_id / muscle_sub_group_id / equipment_id は必ず提示された一
 |------|----|------|
 | `OPENAI_API_KEY` | `sk-...` | OpenAI APIキー (サーバー専用) |
 | `OPENAI_MODEL` | `gpt-5-mini` | 使用モデル |
-| `AI_RATE_LIMIT_PER_DAY` | `10` | ユーザー1人あたりの日次上限 |
-| `AI_RATE_LIMIT_PER_MONTH` | `100` | ユーザー1人あたりの月次上限 |
 | `MONTHLY_AI_CALL_LIMIT` | `3000` | 全体の月次キャップ |
 | `AI_CACHE_TTL_HOURS` | `1` | キャッシュTTL |
-| `AI_MAX_TOKENS` | `1000` | 1回の `max_tokens` |
+| `AI_PENDING_RESERVATION_TTL_MINUTES` | `15` | pending予約を利用枠に含める時間 |
+| `AI_MAX_TOKENS` | `3000` | 1回の最大出力トークン数 |
 
 ## 11. 観測・運用
 

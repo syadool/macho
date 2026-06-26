@@ -9,7 +9,7 @@ export async function GET() {
   const auth = await requireApiOnboardedUser();
   if (!auth.ok) return NextResponse.json({ error: auth.status === 401 ? "unauthorized" : "not_onboarded" }, { status: auth.status });
 
-  const usage = await getRemainingUsage(auth.user.id, auth.profile.subscription_tier);
+  const usage = await getRemainingUsage(auth.user.id, auth.profile.subscription_tier, auth.profile.subscription_status);
   return NextResponse.json({
     tier: auth.profile.subscription_tier,
     status: auth.profile.subscription_status,

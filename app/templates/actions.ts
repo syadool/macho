@@ -18,6 +18,7 @@ export async function saveSuggestionAsTemplateAction(input: {
     revalidatePath("/templates");
     return { ok: true, templateId };
   } catch (error) {
+    console.error("Failed to save suggestion as template", error);
     const message = error instanceof Error && error.message === "AI提案が見つかりません。" ? error.message : "保存に失敗しました。";
     return { ok: false, message };
   }
@@ -29,6 +30,7 @@ export async function deleteTemplateAction(id: string): Promise<{ ok: boolean; m
     revalidatePath("/templates");
     return { ok: true };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "削除に失敗しました。" };
+    console.error("Failed to delete template", error);
+    return { ok: false, message: "削除に失敗しました。" };
   }
 }

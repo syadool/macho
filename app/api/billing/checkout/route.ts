@@ -31,10 +31,13 @@ export async function POST(req: Request) {
   const customerId =
     auth.profile.stripe_customer_id ??
     (
-      await stripe.customers.create({
-        email: auth.user.email ?? undefined,
-        metadata: { supabase_user_id: auth.user.id },
-      })
+      await stripe.customers.create(
+        {
+          email: auth.user.email ?? undefined,
+          metadata: { supabase_user_id: auth.user.id },
+        },
+        { idempotencyKey: `macho_customer_${auth.user.id}` },
+      )
     ).id;
 
   if (!auth.profile.stripe_customer_id) {
@@ -42,22 +45,49 @@ export async function POST(req: Request) {
     if (error) throw new Error(error.message);
   }
 
-  const origin = getBaseUrl(req);
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
+  const subscriptions = await stripe.subscriptions.list({
     customer: customerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${origin}/settings/billing?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/settings/billing`,
-    subscription_data: {
-      metadata: { supabase_user_id: auth.user.id },
-    },
-    metadata: {
-      supabase_user_id: auth.user.id,
-      subscription_tier: tier,
-    },
-    locale: "ja",
+    status: "all",
+    limit: 20,
   });
+  const existingSubscription = subscriptions.data.find((subscription) =>
+    ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(subscription.status),
+  );
+  if (existingSubscription) {
+    return NextResponse.json({ error: "subscription_exists" }, { status: 409 });
+  }
+
+  const openSessions = await stripe.checkout.sessions.list({
+    customer: customerId,
+    status: "open",
+    limit: 10,
+  });
+  const existingSession = openSessions.data.find(
+    (session) => session.mode === "subscription" && session.metadata?.supabase_user_id === auth.user.id && session.url,
+  );
+  if (existingSession?.url) return NextResponse.json({ url: existingSession.url });
+
+  const origin = getBaseUrl(req);
+  const idempotencyWindow = Math.floor(Date.now() / (15 * 60 * 1000));
+  const session = await stripe.checkout.sessions.create(
+    {
+      mode: "subscription",
+      customer: customerId,
+      client_reference_id: auth.user.id,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${origin}/settings/billing?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/settings/billing`,
+      subscription_data: {
+        metadata: { supabase_user_id: auth.user.id },
+      },
+      metadata: {
+        supabase_user_id: auth.user.id,
+        subscription_tier: tier,
+      },
+      locale: "ja",
+    },
+    { idempotencyKey: `macho_checkout_${auth.user.id}_${priceId}_${idempotencyWindow}` },
+  );
 
   if (!session.url) return NextResponse.json({ error: "checkout_url_missing" }, { status: 502 });
   return NextResponse.json({ url: session.url });

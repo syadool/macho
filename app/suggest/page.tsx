@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function SuggestPage() {
   const { user } = await requireOnboardedUser();
   const [profile, { muscleGroups }] = await Promise.all([getUserProfile(), getMasterData()]);
-  const initialUsage = await getRemainingUsage(user.id, profile?.subscription_tier ?? "free");
+  const initialUsage = await getRemainingUsage(user.id, profile?.subscription_tier ?? "free", profile?.subscription_status ?? "none");
 
   return (
     <PhoneShell>

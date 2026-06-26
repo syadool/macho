@@ -27,6 +27,11 @@ export type WorkoutSet = {
   reps: number;
 };
 
+export type NewWorkoutSetPayload = {
+  weight_kg: number;
+  reps: number;
+};
+
 export type ExerciseType = "strength" | "cardio";
 
 export type WorkoutExercise = {
@@ -59,6 +64,7 @@ export type NewExercisePayload = {
   weight_kg: number;
   reps: number;
   sets: number;
+  workout_sets?: NewWorkoutSetPayload[];
   duration_minutes: number | null;
   distance_km: number | null;
   calories: number | null;
@@ -81,6 +87,7 @@ export type UserProfile = {
   subscription_status: SubscriptionStatus;
   subscription_id: string | null;
   current_period_end: string | null;
+  stripe_subscription_event_created: number | null;
 };
 
 export type SubscriptionTier = "free" | "go" | "plus" | "pro";

@@ -1,4 +1,4 @@
-import type { SubscriptionTier } from "@/lib/types";
+import type { SubscriptionStatus, SubscriptionTier } from "@/lib/types";
 
 export type BillingPlan = {
   tier: SubscriptionTier;
@@ -70,6 +70,13 @@ export function getStripePriceIdForTier(tier: SubscriptionTier) {
 
 export function getTierForStripePriceId(priceId: string) {
   return getPaidPlans().find((plan) => plan.priceEnvKey && process.env[plan.priceEnvKey] === priceId)?.tier ?? null;
+}
+
+export function getEntitledSubscriptionTier(
+  tier: SubscriptionTier | null | undefined,
+  status: SubscriptionStatus | null | undefined,
+) {
+  return status === "active" ? tier ?? "free" : "free";
 }
 
 export function getCheckoutPlans() {

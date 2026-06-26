@@ -9,6 +9,7 @@ export type EditableProfilePayload = {
 
 const TRAINING_GOALS: TrainingGoal[] = ["hypertrophy", "strength", "fat_loss", "maintenance"];
 const EXPERIENCE_LEVELS: ExperienceLevel[] = ["beginner", "intermediate", "advanced"];
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function validateEditableProfile(input: EditableProfilePayload): { ok: true; payload: EditableProfilePayload } | { ok: false; message: string } {
   if (!TRAINING_GOALS.includes(input.training_goal)) return { ok: false, message: "目的を選択してください。" };
@@ -26,8 +27,20 @@ export function validateEditableProfile(input: EditableProfilePayload): { ok: tr
       experience_level: input.experience_level,
       weekly_frequency: input.weekly_frequency,
       focus_muscle_group_ids: Array.from(
-        new Set(focusMuscleGroupIds.filter((id) => typeof id === "string" && id.length > 0)),
+        new Set(focusMuscleGroupIds.filter((id) => typeof id === "string" && UUID_PATTERN.test(id))),
       ),
     },
   };
+}
+
+export function validateProfileFocusMuscleIds(
+  payload: EditableProfilePayload,
+  validMuscleGroupIds: string[],
+): { ok: true; payload: EditableProfilePayload } | { ok: false; message: string } {
+  const validIds = new Set(validMuscleGroupIds);
+  if (payload.focus_muscle_group_ids.some((id) => !validIds.has(id))) {
+    return { ok: false, message: "重点部位の指定が不正です。" };
+  }
+
+  return { ok: true, payload };
 }

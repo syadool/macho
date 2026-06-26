@@ -25,6 +25,10 @@ export function EditWorkoutForm({
   const [exercises, setExercises] = useState<LocalExercise[]>(() =>
     workout.workout_exercises.map((exercise) => {
       const firstSet = exercise.workout_sets[0];
+      const workoutSets = exercise.workout_sets.map((set) => ({
+        weight_kg: Number(set.weight_kg),
+        reps: Number(set.reps),
+      }));
       return {
         local_key: exercise.id,
         exercise_type: exercise.exercise_type,
@@ -35,6 +39,7 @@ export function EditWorkoutForm({
         weight_kg: Number(firstSet?.weight_kg ?? 0),
         reps: Number(firstSet?.reps ?? 0),
         sets: exercise.exercise_type === "strength" ? Math.max(exercise.workout_sets.length, 1) : 0,
+        workout_sets: exercise.exercise_type === "strength" ? workoutSets : [],
         duration_minutes: exercise.duration_minutes ?? 30,
         distance_km: Number(exercise.distance_km ?? 0),
         calories: exercise.calories ?? 0,
@@ -56,6 +61,14 @@ export function EditWorkoutForm({
       muscle_sub_group_ids: [],
       equipment_id: type === "strength" ? equipment[0]?.id ?? null : null,
       sets: type === "strength" ? 3 : 0,
+      workout_sets:
+        type === "strength"
+          ? [
+              { weight_kg: 60, reps: 10 },
+              { weight_kg: 60, reps: 10 },
+              { weight_kg: 60, reps: 10 },
+            ]
+          : [],
       duration_minutes: type === "cardio" ? 30 : null,
       distance_km: type === "cardio" ? 5 : null,
       calories: type === "cardio" ? 250 : null,
@@ -86,6 +99,14 @@ export function EditWorkoutForm({
         weight_kg: type === "strength" ? 60 : 0,
         reps: type === "strength" ? 10 : 0,
         sets: type === "strength" ? 3 : 0,
+        workout_sets:
+          type === "strength"
+            ? [
+                { weight_kg: 60, reps: 10 },
+                { weight_kg: 60, reps: 10 },
+                { weight_kg: 60, reps: 10 },
+              ]
+            : [],
         duration_minutes: type === "cardio" ? 30 : null,
         distance_km: type === "cardio" ? 5 : null,
         calories: type === "cardio" ? 250 : null,
@@ -95,6 +116,47 @@ export function EditWorkoutForm({
 
   function removeExercise(index: number) {
     setExercises((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function setStrengthSetCount(index: number, count: number) {
+    setExercises((current) =>
+      current.map((exercise, itemIndex) => {
+        if (itemIndex !== index) return exercise;
+        const currentSets = getStrengthSets(exercise);
+        const nextSets = Array.from({ length: count }, (_, setIndex) => {
+          const previous = currentSets[setIndex] ?? currentSets[currentSets.length - 1];
+          return {
+            weight_kg: previous?.weight_kg ?? exercise.weight_kg,
+            reps: previous?.reps ?? exercise.reps,
+          };
+        });
+        return {
+          ...exercise,
+          sets: nextSets.length,
+          workout_sets: nextSets,
+          weight_kg: nextSets[0]?.weight_kg ?? exercise.weight_kg,
+          reps: nextSets[0]?.reps ?? exercise.reps,
+        };
+      }),
+    );
+  }
+
+  function patchStrengthSet(index: number, setIndex: number, patch: { weight_kg?: number; reps?: number }) {
+    setExercises((current) =>
+      current.map((exercise, itemIndex) => {
+        if (itemIndex !== index) return exercise;
+        const nextSets = getStrengthSets(exercise).map((set, currentSetIndex) =>
+          currentSetIndex === setIndex ? { ...set, ...patch } : set,
+        );
+        return {
+          ...exercise,
+          sets: nextSets.length,
+          workout_sets: nextSets,
+          weight_kg: nextSets[0]?.weight_kg ?? exercise.weight_kg,
+          reps: nextSets[0]?.reps ?? exercise.reps,
+        };
+      }),
+    );
   }
 
   function submit() {
@@ -130,6 +192,7 @@ export function EditWorkoutForm({
           const isCardio = exercise.exercise_type === "cardio";
           const selectedMuscle = muscleGroups.find((group) => group.id === exercise.muscle_group_id) ?? muscleGroups[0];
           const subGroups = selectedMuscle?.muscle_sub_groups ?? [];
+          const strengthSets = getStrengthSets(exercise);
 
           return (
             <Card key={exercise.local_key} className="space-y-3">
@@ -213,10 +276,27 @@ export function EditWorkoutForm({
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
-                    <Stepper label="重量 (kg)" value={exercise.weight_kg} min={0} step={2.5} onChange={(value) => patchExercise(index, { weight_kg: value })} />
-                    <Stepper label="回数" value={exercise.reps} min={0} step={1} onChange={(value) => patchExercise(index, { reps: value })} />
-                    <Stepper label="セット" value={exercise.sets} min={1} step={1} onChange={(value) => patchExercise(index, { sets: value })} />
+                  <Stepper label="セット" value={exercise.sets} min={1} step={1} onChange={(value) => setStrengthSetCount(index, value)} />
+
+                  <div className="space-y-2">
+                    {strengthSets.map((set, setIndex) => (
+                      <div key={setIndex} className="grid grid-cols-2 gap-2">
+                        <Stepper
+                          label={`${setIndex + 1}セット 重量 (kg)`}
+                          value={set.weight_kg}
+                          min={0}
+                          step={2.5}
+                          onChange={(value) => patchStrengthSet(index, setIndex, { weight_kg: value })}
+                        />
+                        <Stepper
+                          label={`${setIndex + 1}セット 回数`}
+                          value={set.reps}
+                          min={0}
+                          step={1}
+                          onChange={(value) => patchStrengthSet(index, setIndex, { reps: value })}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </>
               )}
@@ -244,6 +324,14 @@ export function EditWorkoutForm({
       </PrimaryButton>
     </>
   );
+}
+
+function getStrengthSets(exercise: LocalExercise) {
+  if (Array.isArray(exercise.workout_sets) && exercise.workout_sets.length > 0) return exercise.workout_sets;
+  return Array.from({ length: Math.max(exercise.sets, 1) }, () => ({
+    weight_kg: exercise.weight_kg,
+    reps: exercise.reps,
+  }));
 }
 
 function ModeButton({

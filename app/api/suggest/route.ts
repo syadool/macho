@@ -39,12 +39,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "not_onboarded" }, { status: 403 });
     case "forbidden":
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    case "invalid_input":
+      return NextResponse.json({ error: "invalid_input", message: result.message }, { status: 400 });
     case "rate_limited":
       return NextResponse.json(
         { error: "rate_limit_exceeded", scope: result.scope, reset_at: result.resetAt },
         { status: result.scope === "global" ? 503 : 429 },
       );
     case "error":
-      return NextResponse.json({ error: "generation_failed", message: result.message }, { status: 500 });
+      console.error("AI suggestion failed", result.message);
+      return NextResponse.json({ error: "generation_failed", message: "提案生成に失敗しました。" }, { status: 500 });
   }
 }

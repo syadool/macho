@@ -70,11 +70,10 @@ OpenAI SDK を依存に追加し、`.env.local.example` に新規環境変数を
 2. `.env.local.example` の末尾に以下のキーを追記する（コメントは英語でよい）:
    - OPENAI_API_KEY
    - OPENAI_MODEL  (デフォルト値の例として "gpt-5-mini" を書いておく)
-   - AI_RATE_LIMIT_PER_DAY=10
-   - AI_RATE_LIMIT_PER_MONTH=100
    - MONTHLY_AI_CALL_LIMIT=3000
    - AI_CACHE_TTL_HOURS=1
-   - AI_MAX_TOKENS=1000
+   - AI_PENDING_RESERVATION_TTL_MINUTES=15
+   - AI_MAX_TOKENS=3000
 
 完了条件:
 - `npm install` がエラーなく通る
@@ -707,11 +706,11 @@ export async function saveSuggestionAsTemplateAction(input: {
 1. `src/lib/ai/env.ts`:
    - export function getOpenAIApiKey(): string  -> process.env.OPENAI_API_KEY を返す。未設定なら throw。
    - export function getOpenAIModel(): string -> process.env.OPENAI_MODEL ?? "gpt-5-mini"
-   - export function getAIRateLimitPerDay(): number -> Number(process.env.AI_RATE_LIMIT_PER_DAY ?? 10)
-   - export function getAIRateLimitPerMonth(): number -> Number(process.env.AI_RATE_LIMIT_PER_MONTH ?? 100)
-   - export function getMonthlyCallLimit(): number -> Number(process.env.MONTHLY_AI_CALL_LIMIT ?? 3000)
-   - export function getCacheTtlHours(): number -> Number(process.env.AI_CACHE_TTL_HOURS ?? 1)
-   - export function getAIMaxTokens(): number -> Number(process.env.AI_MAX_TOKENS ?? 1000)
+   - export function getAILimitsForTier(): プラン別の日次/月次上限を返す。
+   - export function getMonthlyCallLimit(): number -> MONTHLY_AI_CALL_LIMIT を安全にパースし、不正値は既定値へフォールバック。
+   - export function getCacheTtlHours(): number -> AI_CACHE_TTL_HOURS を安全にパースし、不正値は既定値へフォールバック。
+   - export function getPendingReservationTtlMinutes(): number -> AI_PENDING_RESERVATION_TTL_MINUTES を安全にパースし、不正値は既定値へフォールバック。
+   - export function getAIMaxTokens(): number -> AI_MAX_TOKENS を安全にパースし、最低3000に丸める。
 
 2. `src/lib/ai/client.ts`:
    - import OpenAI from "openai"

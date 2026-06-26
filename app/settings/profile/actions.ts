@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getMasterData } from "@/lib/data";
 import { upsertUserProfile } from "@/lib/profile";
-import { validateEditableProfile } from "@/lib/profile-validation";
+import { validateEditableProfile, validateProfileFocusMuscleIds } from "@/lib/profile-validation";
 import type { ExperienceLevel, TrainingGoal } from "@/lib/types";
 
 export async function saveProfile(input: {
@@ -15,11 +16,19 @@ export async function saveProfile(input: {
   if (!validated.ok) return validated;
 
   try {
-    await upsertUserProfile(validated.payload);
+    const { muscleGroups } = await getMasterData();
+    const focusValidation = validateProfileFocusMuscleIds(
+      validated.payload,
+      muscleGroups.map((group) => group.id),
+    );
+    if (!focusValidation.ok) return focusValidation;
+
+    await upsertUserProfile(focusValidation.payload);
     revalidatePath("/settings/profile");
     revalidatePath("/dashboard");
     return { ok: true };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "保存に失敗しました。" };
+    console.error("Failed to save profile", error);
+    return { ok: false, message: "保存に失敗しました。" };
   }
 }

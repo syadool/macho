@@ -29,7 +29,7 @@ export default async function DashboardPage({
 }) {
   const { user } = await requireOnboardedUser();
   const [{ range }, workouts, profile] = await Promise.all([searchParams, getAllWorkouts(), getUserProfile()]);
-  const aiUsage = await getRemainingUsage(user.id, profile?.subscription_tier ?? "free");
+  const aiUsage = await getRemainingUsage(user.id, profile?.subscription_tier ?? "free", profile?.subscription_status ?? "none");
   const activeRange = parseDashboardRange(range);
   const rangeWorkouts = filterWorkoutsByRange(workouts, activeRange);
   const exerciseCount = rangeWorkouts.reduce((total, workout) => total + workout.workout_exercises.length, 0);

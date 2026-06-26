@@ -1,26 +1,33 @@
 import type Stripe from "stripe";
-import { getTierForStripePriceId } from "@/lib/billing/plans";
+import { getEntitledSubscriptionTier, getTierForStripePriceId } from "@/lib/billing/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SubscriptionStatus, SubscriptionTier } from "@/lib/types";
 
-export async function syncStripeSubscription(subscription: Stripe.Subscription) {
+type SyncOptions = {
+  eventCreated?: number;
+};
+
+export async function syncStripeSubscription(subscription: Stripe.Subscription, options: SyncOptions = {}) {
   const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
   const userId = await findUserIdForSubscription(subscription, customerId);
   if (!userId) return null;
+  if (await isStaleSubscriptionEvent(userId, options.eventCreated)) return userId;
 
   const tier = getTierForSubscription(subscription);
   const status = getSubscriptionStatus(subscription.status);
   const isDeleted = subscription.status === "canceled";
+  const entitledTier = isDeleted ? "free" : getEntitledSubscriptionTier(tier, status);
   const admin = createAdminClient();
   const { error } = await admin
     .from("user_profiles")
     .update({
-      subscription_tier: isDeleted ? "free" : tier,
+      subscription_tier: entitledTier,
       subscription_status: isDeleted ? "canceled" : status,
       subscription_id: isDeleted ? null : subscription.id,
       stripe_customer_id: customerId,
       current_period_end: isDeleted ? null : getCurrentPeriodEnd(subscription),
       ai_suggestion_enabled: true,
+      stripe_subscription_event_created: options.eventCreated ?? null,
     })
     .eq("user_id", userId);
 
@@ -28,10 +35,11 @@ export async function syncStripeSubscription(subscription: Stripe.Subscription) 
   return userId;
 }
 
-export async function markSubscriptionDeleted(subscription: Stripe.Subscription) {
+export async function markSubscriptionDeleted(subscription: Stripe.Subscription, options: SyncOptions = {}) {
   const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
   const userId = await findUserIdForSubscription(subscription, customerId);
   if (!userId) return null;
+  if (await isStaleSubscriptionEvent(userId, options.eventCreated)) return userId;
 
   const admin = createAdminClient();
   const { error } = await admin
@@ -43,6 +51,7 @@ export async function markSubscriptionDeleted(subscription: Stripe.Subscription)
       stripe_customer_id: customerId,
       current_period_end: null,
       ai_suggestion_enabled: true,
+      stripe_subscription_event_created: options.eventCreated ?? null,
     })
     .eq("user_id", userId);
 
@@ -58,6 +67,21 @@ async function findUserIdForSubscription(subscription: Stripe.Subscription, cust
   const { data, error } = await admin.from("user_profiles").select("user_id").eq("stripe_customer_id", customerId).maybeSingle();
   if (error) throw new Error(error.message);
   return (data?.user_id as string | undefined) ?? null;
+}
+
+async function isStaleSubscriptionEvent(userId: string, eventCreated: number | undefined) {
+  if (typeof eventCreated !== "number") return false;
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("user_profiles")
+    .select("stripe_subscription_event_created")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  const lastEventCreated = (data as { stripe_subscription_event_created?: number | null } | null)?.stripe_subscription_event_created;
+  return typeof lastEventCreated === "number" && lastEventCreated > eventCreated;
 }
 
 function getTierForSubscription(subscription: Stripe.Subscription): SubscriptionTier {

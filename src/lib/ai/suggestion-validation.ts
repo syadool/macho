@@ -5,7 +5,12 @@ export type AiSuggestionPayload = {
   exercises: SuggestionExercise[];
 };
 
-export function validateSuggestionPayload(raw: unknown, muscleGroups: MuscleGroup[], equipment: Equipment[]): AiSuggestionPayload {
+export function validateSuggestionPayload(
+  raw: unknown,
+  muscleGroups: MuscleGroup[],
+  equipment: Equipment[],
+  options: { targetMuscleGroupIds?: string[] } = {},
+): AiSuggestionPayload {
   if (!isRecord(raw)) throw new Error("AI response must be an object");
   const overallComment = readOptionalString(raw.overall_comment, 240) ?? "";
   const rawExercises = Array.isArray(raw.exercises) ? raw.exercises : [];
@@ -16,14 +21,22 @@ export function validateSuggestionPayload(raw: unknown, muscleGroups: MuscleGrou
 
   return {
     overall_comment: overallComment || "次回メニューを提案しました。",
-    exercises: validateSuggestionExercises(rawExercises, muscleGroups, equipment),
+    exercises: validateSuggestionExercises(rawExercises, muscleGroups, equipment, options),
   };
 }
 
-export function validateSuggestionExercises(rawExercises: unknown[], muscleGroups: MuscleGroup[], equipment: Equipment[]) {
+export function validateSuggestionExercises(
+  rawExercises: unknown[],
+  muscleGroups: MuscleGroup[],
+  equipment: Equipment[],
+  options: { targetMuscleGroupIds?: string[] } = {},
+) {
   const muscleIds = new Set(muscleGroups.map((group) => group.id));
-  const subGroupIds = new Set(muscleGroups.flatMap((group) => group.muscle_sub_groups ?? []).map((group) => group.id));
+  const subGroupToMuscleId = new Map(
+    muscleGroups.flatMap((group) => (group.muscle_sub_groups ?? []).map((subGroup) => [subGroup.id, group.id] as const)),
+  );
   const equipmentIds = new Set(equipment.map((item) => item.id));
+  const targetMuscleIds = options.targetMuscleGroupIds ? new Set(options.targetMuscleGroupIds) : null;
 
   return rawExercises.map((exercise, index) => {
     if (!isRecord(exercise)) throw new Error(`Exercise ${index + 1} must be an object`);
@@ -37,7 +50,11 @@ export function validateSuggestionExercises(rawExercises: unknown[], muscleGroup
     const notes = readOptionalString(exercise.notes, 400);
 
     if (!muscleIds.has(muscleGroupId)) throw new Error(`Unknown muscle_group_id: ${muscleGroupId}`);
-    if (muscleSubGroupId && !subGroupIds.has(muscleSubGroupId)) throw new Error(`Unknown muscle_sub_group_id: ${muscleSubGroupId}`);
+    if (targetMuscleIds && !targetMuscleIds.has(muscleGroupId)) throw new Error(`Unexpected muscle_group_id: ${muscleGroupId}`);
+    if (muscleSubGroupId && !subGroupToMuscleId.has(muscleSubGroupId)) throw new Error(`Unknown muscle_sub_group_id: ${muscleSubGroupId}`);
+    if (muscleSubGroupId && subGroupToMuscleId.get(muscleSubGroupId) !== muscleGroupId) {
+      throw new Error(`muscle_sub_group_id does not belong to muscle_group_id: ${muscleSubGroupId}`);
+    }
     if (equipmentId && !equipmentIds.has(equipmentId)) throw new Error(`Unknown equipment_id: ${equipmentId}`);
 
     return {

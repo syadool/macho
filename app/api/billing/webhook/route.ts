@@ -22,18 +22,21 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient();
-  const existing = await admin.from("subscription_events").select("processed_at").eq("stripe_event_id", event.id).maybeSingle();
-  if (existing.error) throw new Error(existing.error.message);
-  if (existing.data?.processed_at) return NextResponse.json({ received: true });
-
-  if (!existing.data) {
-    const { error } = await admin.from("subscription_events").insert({
+  const { error: insertError } = await admin
+    .from("subscription_events")
+    .upsert(
+      {
       stripe_event_id: event.id,
       event_type: event.type,
       payload: event as unknown as Record<string, unknown>,
-    });
-    if (error) throw new Error(error.message);
-  }
+      },
+      { onConflict: "stripe_event_id", ignoreDuplicates: true },
+    );
+  if (insertError) throw new Error(insertError.message);
+
+  const existing = await admin.from("subscription_events").select("processed_at").eq("stripe_event_id", event.id).maybeSingle();
+  if (existing.error) throw new Error(existing.error.message);
+  if (existing.data?.processed_at) return NextResponse.json({ received: true });
 
   const userId = await processBillingEvent(event);
   const { error } = await admin
@@ -48,12 +51,12 @@ export async function POST(req: Request) {
 async function processBillingEvent(event: Stripe.Event) {
   switch (event.type) {
     case "checkout.session.completed":
-      return handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+      return handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session, event.created);
     case "customer.subscription.created":
     case "customer.subscription.updated":
-      return syncStripeSubscription(event.data.object as Stripe.Subscription);
+      return syncStripeSubscription(event.data.object as Stripe.Subscription, { eventCreated: event.created });
     case "customer.subscription.deleted":
-      return markSubscriptionDeleted(event.data.object as Stripe.Subscription);
+      return markSubscriptionDeleted(event.data.object as Stripe.Subscription, { eventCreated: event.created });
     case "invoice.payment_succeeded":
     case "invoice.payment_failed":
       return findUserIdFromInvoice(event.data.object as Stripe.Invoice);
@@ -62,7 +65,7 @@ async function processBillingEvent(event: Stripe.Event) {
   }
 }
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session, eventCreated: number) {
   const userId = session.metadata?.supabase_user_id ?? null;
   const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
   const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id ?? null;
@@ -74,7 +77,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   if (subscriptionId) {
     const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
-    return syncStripeSubscription(subscription);
+    return syncStripeSubscription(subscription, { eventCreated });
   }
 
   return userId;

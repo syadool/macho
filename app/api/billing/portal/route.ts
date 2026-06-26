@@ -13,8 +13,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "stripe_customer_not_found" }, { status: 404 });
   }
 
+  const portalConfigurationId = process.env.STRIPE_PORTAL_CONFIGURATION_ID;
   const session = await getStripeClient().billingPortal.sessions.create({
     customer: auth.profile.stripe_customer_id,
+    configuration: portalConfigurationId || undefined,
     return_url: `${getBaseUrl(req)}/settings/billing`,
   });
 
