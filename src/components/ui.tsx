@@ -36,7 +36,7 @@ export function Pill({
 
 export function BottomNav({ active }: { active: "dashboard" | "record" | "history" }) {
   return (
-    <nav className="flex items-center justify-around border-t border-macho-border bg-macho-base pb-6 pt-2">
+    <nav className="relative z-10 flex shrink-0 items-center justify-around border-t border-macho-border bg-macho-base pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-2">
       <NavItem href="/dashboard" label="ホーム" active={active === "dashboard"} icon={<Home size={20} />} />
       <Link
         href="/record"
