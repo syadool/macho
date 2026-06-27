@@ -19,6 +19,7 @@ export async function POST(req: Request) {
     ? record.target_muscle_group_ids.filter((item): item is string => typeof item === "string" && UUID_PATTERN.test(item)).slice(0, 10)
     : [];
   const theme = typeof record.theme === "string" ? record.theme.slice(0, 120) : null;
+  const forceRegenerate = record.force_regenerate === true;
 
   if (targetMuscleGroupIds.length === 0) {
     return NextResponse.json({ error: "no_target" }, { status: 400 });
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
   const result = await generateSuggestion({
     targetMuscleGroupIds,
     theme,
+    forceRegenerate,
   });
 
   switch (result.kind) {

@@ -26,17 +26,19 @@ export async function POST(req: Request) {
     .from("subscription_events")
     .upsert(
       {
-      stripe_event_id: event.id,
-      event_type: event.type,
-      payload: event as unknown as Record<string, unknown>,
+        stripe_event_id: event.id,
+        event_type: event.type,
+        payload: event as unknown as Record<string, unknown>,
       },
       { onConflict: "stripe_event_id", ignoreDuplicates: true },
     );
   if (insertError) throw new Error(insertError.message);
 
-  const existing = await admin.from("subscription_events").select("processed_at").eq("stripe_event_id", event.id).maybeSingle();
-  if (existing.error) throw new Error(existing.error.message);
-  if (existing.data?.processed_at) return NextResponse.json({ received: true });
+  const { data: claimed, error: claimError } = await admin.rpc("claim_subscription_event", {
+    p_stripe_event_id: event.id,
+  });
+  if (claimError) throw new Error(claimError.message);
+  if (claimed !== true) return NextResponse.json({ received: true });
 
   const userId = await processBillingEvent(event);
   const { error } = await admin

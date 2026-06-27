@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 import { ArrowLeft, Copy } from "lucide-react";
 import { PhoneShell } from "@/components/phone-shell";
 import { Card, PageTitle } from "@/components/ui";
+import { getConfiguredAppUrl } from "@/lib/app-url";
 import { listGptApiKeys } from "@/lib/gpt/api-keys";
 import { requireOnboardedUser } from "@/lib/supabase/server";
 import { ApiKeyManager } from "./api-key-manager";
@@ -11,10 +11,9 @@ export const dynamic = "force-dynamic";
 
 export default async function ApiKeysSettingsPage() {
   await requireOnboardedUser();
-  const [apiKeys, requestHeaders] = await Promise.all([listGptApiKeys(), headers()]);
-  const host = requestHeaders.get("host");
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
-  const openApiUrl = host ? `${protocol}://${host}/api/gpt/openapi.json` : "/api/gpt/openapi.json";
+  const apiKeys = await listGptApiKeys();
+  const appUrl = getConfiguredAppUrl();
+  const openApiUrl = appUrl ? `${appUrl}/api/gpt/openapi.json` : "/api/gpt/openapi.json";
 
   return (
     <PhoneShell>

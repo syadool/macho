@@ -52,6 +52,7 @@ export type Workout = {
   id: string;
   date: string;
   created_at: string;
+  updated_at: string;
   workout_exercises: WorkoutExercise[];
 };
 

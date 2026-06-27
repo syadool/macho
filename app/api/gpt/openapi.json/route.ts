@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { getPublicAppUrlForRequest } from "@/lib/app-url";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const origin = new URL(req.url).origin;
+  const origin = getPublicAppUrlForRequest(req);
+  if (!origin) return NextResponse.json({ error: "app_url_not_configured" }, { status: 500 });
 
   return NextResponse.json({
     openapi: "3.1.0",

@@ -21,6 +21,7 @@ import type { AIUsage, SubscriptionTier, SuggestionResult, Workout } from "@/lib
 export type GenerateSuggestionInput = {
   targetMuscleGroupIds: string[];
   theme: string | null;
+  forceRegenerate?: boolean;
 };
 
 export type GenerateSuggestionResult =
@@ -48,6 +49,21 @@ type LogInsertInput = {
   costUsd?: number | null;
 };
 
+type LogUpdateInput = {
+  responsePayload?: AiSuggestionPayload | null;
+  status?: LogStatus;
+  errorMessage?: string | null;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+  totalTokens?: number | null;
+  costUsd?: number | null;
+};
+
+type OpenAIUsageSnapshot = Pick<
+  LogUpdateInput,
+  "promptTokens" | "completionTokens" | "totalTokens" | "costUsd"
+>;
+
 export async function generateSuggestion(input: GenerateSuggestionInput): Promise<GenerateSuggestionResult> {
   const auth = await requireApiOnboardedUser();
   if (!auth.ok) return auth.status === 401 ? { kind: "unauthorized" } : { kind: "not_onboarded" };
@@ -63,6 +79,7 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
     theme: sanitizedInput.theme,
   };
   let reservedLogId: string | null = null;
+  let billedUsage: OpenAIUsageSnapshot | null = null;
 
   try {
     if (!profile?.ai_suggestion_enabled) {
@@ -81,7 +98,9 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
     if (reservation.kind === "rate_limited") return reservation;
     reservedLogId = reservation.logId;
 
-    const cached = await findCachedSuggestion(user.id, inputHash, requestPayload, reservedLogId, entitlementTier);
+    const cached = input.forceRegenerate
+      ? null
+      : await findCachedSuggestion(user.id, inputHash, reservedLogId, entitlementTier);
     if (cached) return { kind: "cached", payload: cached };
 
     const workouts = await getWorkouts(20);
@@ -117,20 +136,18 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
     });
 
     const choice = response.choices[0];
+    const promptTokens = response.usage?.prompt_tokens ?? null;
+    const completionTokens = response.usage?.completion_tokens ?? null;
+    const totalTokens = response.usage?.total_tokens ?? null;
+    const costUsd = estimateCost(promptTokens, completionTokens);
+    billedUsage = { promptTokens, completionTokens, totalTokens, costUsd };
     const content = extractMessageContent(choice?.message?.content);
     if (!content) throw new Error(buildEmptyOpenAIResponseMessage(choice, maxCompletionTokens));
 
     const payload = validateSuggestionPayload(JSON.parse(content) as unknown, muscleGroups, equipment, {
       targetMuscleGroupIds: sanitizedInput.targetMuscleGroupIds,
     });
-    const promptTokens = response.usage?.prompt_tokens ?? null;
-    const completionTokens = response.usage?.completion_tokens ?? null;
-    const totalTokens = response.usage?.total_tokens ?? null;
-    const costUsd = estimateCost(promptTokens, completionTokens);
     await updateLog(reservedLogId, user.id, {
-      userId: user.id,
-      inputHash,
-      requestPayload,
       responsePayload: payload,
       status: "success",
       promptTokens,
@@ -138,7 +155,10 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
       totalTokens,
       costUsd,
     });
-    const usage = await getRemainingUsage(user.id, entitlementTier, "active");
+    const usage = await getRemainingUsage(user.id, entitlementTier, "active").catch((usageError) => {
+      console.error("Failed to load remaining AI usage after successful suggestion", usageError);
+      return buildFallbackUsage(entitlementTier);
+    });
 
     return {
       kind: "success",
@@ -153,11 +173,9 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
     const message = error instanceof Error ? error.message : "AI suggestion failed";
     if (reservedLogId) {
       await updateLog(reservedLogId, user.id, {
-        userId: user.id,
-        inputHash,
-        requestPayload,
         status: "error",
         errorMessage: message,
+        ...(billedUsage ?? {}),
       }).catch(() => undefined);
     } else {
       await insertLog({
@@ -185,39 +203,46 @@ async function reserveUsageSlot(
   requestPayload: Record<string, unknown>,
   tier: SubscriptionTier,
 ): Promise<{ kind: "reserved"; logId: string } | Extract<GenerateSuggestionResult, { kind: "rate_limited" }>> {
-  const logId = await insertLog({ userId, inputHash, requestPayload, status: "pending" });
   const { daily: dailyLimit, monthly: monthlyLimit } = getAILimitsForTier(tier);
   const globalLimit = getMonthlyCallLimit();
   const usageWindow = getJstUsageWindow();
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("reserve_ai_suggestion_slot", {
+    p_user_id: userId,
+    p_input_hash: inputHash,
+    p_request_payload: requestPayload,
+    p_daily_limit: dailyLimit,
+    p_monthly_limit: monthlyLimit,
+    p_global_limit: globalLimit,
+    p_pending_since: new Date(Date.now() - getPendingReservationTtlMinutes() * 60 * 1000).toISOString(),
+    p_day_start: usageWindow.startOfDay.toISOString(),
+    p_month_start: usageWindow.startOfMonth.toISOString(),
+  });
 
-  const [dailyCount, monthlyCount, globalCount] = await Promise.all([
-    countLogs({ userId, since: usageWindow.startOfDay.toISOString(), statuses: ["success", "cached", "pending"] }),
-    countLogs({ userId, since: usageWindow.startOfMonth.toISOString(), statuses: ["success", "cached", "pending"] }),
-    countLogs({ since: usageWindow.startOfMonth.toISOString(), statuses: ["success", "pending"] }),
-  ]);
+  if (error) throw new Error(error.message);
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { log_id?: string; rate_limited_scope?: "daily" | "monthly" | "global" | null }
+    | null;
+  if (!row?.log_id) throw new Error("Failed to reserve AI usage slot");
 
-  if (dailyCount > dailyLimit) {
-    await updateLog(logId, userId, { userId, inputHash, requestPayload, status: "rate_limited" }).catch(() => undefined);
+  if (row.rate_limited_scope === "daily") {
     return { kind: "rate_limited", resetAt: usageWindow.nextDay.toISOString(), scope: "daily" };
   }
 
-  if (monthlyCount > monthlyLimit) {
-    await updateLog(logId, userId, { userId, inputHash, requestPayload, status: "rate_limited" }).catch(() => undefined);
+  if (row.rate_limited_scope === "monthly") {
     return { kind: "rate_limited", resetAt: usageWindow.nextMonth.toISOString(), scope: "monthly" };
   }
 
-  if (globalCount > globalLimit) {
-    await updateLog(logId, userId, { userId, inputHash, requestPayload, status: "rate_limited" }).catch(() => undefined);
+  if (row.rate_limited_scope === "global") {
     return { kind: "rate_limited", resetAt: usageWindow.nextMonth.toISOString(), scope: "global" };
   }
 
-  return { kind: "reserved", logId };
+  return { kind: "reserved", logId: row.log_id };
 }
 
 async function findCachedSuggestion(
   userId: string,
   inputHash: string,
-  requestPayload: Record<string, unknown>,
   reservedLogId: string,
   tier: SubscriptionTier,
 ) {
@@ -239,9 +264,6 @@ async function findCachedSuggestion(
 
   const payload = data.response_payload as AiSuggestionPayload;
   await updateLog(reservedLogId, userId, {
-    userId,
-    inputHash,
-    requestPayload,
     responsePayload: payload,
     status: "cached",
     costUsd: 0,
@@ -307,19 +329,20 @@ async function insertLog(input: LogInsertInput) {
   return (data as { id: string }).id;
 }
 
-async function updateLog(id: string, userId: string, input: LogInsertInput) {
+async function updateLog(id: string, userId: string, input: LogUpdateInput) {
   const admin = createAdminClient();
+  const patch: Record<string, unknown> = {};
+  if ("responsePayload" in input) patch.response_payload = input.responsePayload ?? null;
+  if ("promptTokens" in input) patch.prompt_tokens = input.promptTokens ?? null;
+  if ("completionTokens" in input) patch.completion_tokens = input.completionTokens ?? null;
+  if ("totalTokens" in input) patch.total_tokens = input.totalTokens ?? null;
+  if ("costUsd" in input) patch.cost_usd = input.costUsd ?? null;
+  if ("status" in input) patch.status = input.status;
+  if ("errorMessage" in input) patch.error_message = input.errorMessage ?? null;
+
   const { error } = await admin
     .from("ai_suggestion_logs")
-    .update({
-      response_payload: input.responsePayload ?? null,
-      prompt_tokens: input.promptTokens ?? null,
-      completion_tokens: input.completionTokens ?? null,
-      total_tokens: input.totalTokens ?? null,
-      cost_usd: input.costUsd ?? null,
-      status: input.status,
-      error_message: input.errorMessage ?? null,
-    })
+    .update(patch)
     .eq("id", id)
     .eq("user_id", userId);
 
@@ -335,8 +358,8 @@ export async function getRemainingUsage(
   const { daily: dailyLimit, monthly: monthlyLimit } = getAILimitsForTier(activeTier);
   const usageWindow = getJstUsageWindow();
   const [dailyCount, monthlyCount] = await Promise.all([
-    countLogs({ userId, since: usageWindow.startOfDay.toISOString(), statuses: ["success", "cached", "pending"] }),
-    countLogs({ userId, since: usageWindow.startOfMonth.toISOString(), statuses: ["success", "cached", "pending"] }),
+    countUsageLogs({ userId, since: usageWindow.startOfDay.toISOString() }),
+    countUsageLogs({ userId, since: usageWindow.startOfMonth.toISOString() }),
   ]);
 
   return {
@@ -363,6 +386,41 @@ async function getEntitledTierForUser(userId: string): Promise<SubscriptionTier>
   return getEntitledSubscriptionTier(profile?.subscription_tier ?? "free", profile?.subscription_status ?? "none");
 }
 
+async function countUsageLogs(input: { userId: string; since: string }) {
+  const [regularCount, chargedErrorCount] = await Promise.all([
+    countLogs({ userId: input.userId, since: input.since, statuses: ["success", "cached", "pending"] }),
+    countChargedErrorLogs({ userId: input.userId, since: input.since }),
+  ]);
+  return regularCount + chargedErrorCount;
+}
+
+async function countChargedErrorLogs(input: { userId: string; since: string }) {
+  const admin = createAdminClient();
+  const { count, error } = await admin
+    .from("ai_suggestion_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", input.userId)
+    .eq("status", "error")
+    .gte("created_at", input.since)
+    .not("total_tokens", "is", null);
+
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+function buildFallbackUsage(tier: SubscriptionTier): AIUsage {
+  const { daily, monthly } = getAILimitsForTier(tier);
+  return {
+    used_today: daily,
+    limit_today: daily,
+    remaining_today: 0,
+    used_this_month: monthly,
+    limit_this_month: monthly,
+    remaining_this_month: 0,
+    reset_at: getJstUsageWindow().nextMonth.toISOString(),
+  };
+}
+
 function getJstUsageWindow() {
   const now = new Date();
   const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
@@ -387,12 +445,12 @@ function buildRecentWorkoutsSummary(workouts: Workout[]) {
       const exercises = workout.workout_exercises
         .map((exercise) => {
           if (exercise.exercise_type === "cardio") {
-            return `${exercise.exercise_name} ${exercise.duration_minutes ?? 0}分`;
+            return `${sanitizePromptText(exercise.exercise_name)} ${exercise.duration_minutes ?? 0}分`;
           }
 
           const firstSet = exercise.workout_sets[0];
           const setText = firstSet ? `${Number(firstSet.weight_kg)}kg x ${firstSet.reps} x ${exercise.workout_sets.length}set` : "セットなし";
-          return `${exercise.exercise_name} ${setText}`;
+          return `${sanitizePromptText(exercise.exercise_name)} ${setText}`;
         })
         .join(", ");
 
@@ -400,6 +458,10 @@ function buildRecentWorkoutsSummary(workouts: Workout[]) {
     });
 
   return lines.join("\n");
+}
+
+function sanitizePromptText(value: string) {
+  return value.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 120);
 }
 
 function extractMessageContent(content: unknown) {

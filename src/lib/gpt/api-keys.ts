@@ -2,6 +2,8 @@ import { randomBytes } from "crypto";
 import { hashGptApiKey } from "@/lib/gpt/auth";
 import { requireOnboardedUser } from "@/lib/supabase/server";
 
+const MAX_GPT_API_KEYS_PER_USER = 5;
+
 export type ApiKeySummary = {
   id: string;
   key_prefix: string;
@@ -24,6 +26,16 @@ export async function listGptApiKeys() {
 
 export async function createGptApiKey(name: string) {
   const { supabase, user } = await requireOnboardedUser();
+  const { count, error: countError } = await supabase
+    .from("api_keys")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
+  if (countError) throw new Error(countError.message);
+  if ((count ?? 0) >= MAX_GPT_API_KEYS_PER_USER) {
+    throw new Error("GPT_API_KEY_LIMIT_EXCEEDED");
+  }
+
   const token = `macho_${randomBytes(16).toString("hex")}`;
   const normalizedName = normalizeApiKeyName(name);
   const { error } = await supabase.from("api_keys").insert({

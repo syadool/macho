@@ -15,10 +15,12 @@ export function EditWorkoutForm({
   workout,
   muscleGroups,
   equipment,
+  maxDate,
 }: {
   workout: Workout;
   muscleGroups: MuscleGroup[];
   equipment: Equipment[];
+  maxDate: string;
 }) {
   const router = useRouter();
   const [date, setDate] = useState(workout.date);
@@ -162,7 +164,7 @@ export function EditWorkoutForm({
   function submit() {
     setMessage("");
     startTransition(async () => {
-      const result = await updateWorkout(workout.id, date, exercises);
+      const result = await updateWorkout(workout.id, date, exercises, workout.updated_at);
       if (result.ok) {
         router.push("/history");
         router.refresh();
@@ -182,6 +184,7 @@ export function EditWorkoutForm({
           id="edit-workout-date"
           type="date"
           value={date}
+          max={maxDate}
           onChange={(event) => setDate(event.target.value)}
           className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-sm text-macho-text outline-none transition focus:border-macho-lime"
         />

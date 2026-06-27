@@ -43,7 +43,7 @@ export function SuggestForm({
       const response = await fetch("/api/suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target_muscle_group_ids: targetIds, theme }),
+        body: JSON.stringify({ target_muscle_group_ids: targetIds, theme, force_regenerate: confirmRegenerate }),
       });
 
       if (!response.ok) {

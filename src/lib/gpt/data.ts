@@ -19,10 +19,11 @@ type SupabaseWorkout = Omit<Workout, "workout_exercises"> & {
 };
 
 const WORKOUT_SELECT =
-  "id,date,created_at,workout_exercises(id,exercise_name,exercise_type,duration_minutes,distance_km,calories,sort_order,muscle_groups(id,name,name_en,color,sort_order),workout_exercise_sub_groups(muscle_sub_groups(id,muscle_group_id,name,sort_order)),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))";
+  "id,date,created_at,updated_at,workout_exercises(id,exercise_name,exercise_type,duration_minutes,distance_km,calories,sort_order,muscle_groups(id,name,name_en,color,sort_order),workout_exercise_sub_groups(muscle_sub_groups(id,muscle_group_id,name,sort_order)),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))";
 
 const LEGACY_WORKOUT_SELECT =
-  "id,date,created_at,workout_exercises(id,exercise_name,sort_order,muscle_groups(id,name,name_en,color,sort_order),muscle_sub_groups!workout_exercises_muscle_sub_group_id_fkey(id,muscle_group_id,name,sort_order),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))";
+  "id,date,created_at,updated_at,workout_exercises(id,exercise_name,sort_order,muscle_groups(id,name,name_en,color,sort_order),muscle_sub_groups!workout_exercises_muscle_sub_group_id_fkey(id,muscle_group_id,name,sort_order),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))";
+const GPT_STATS_WORKOUT_ROW_CAP = 2000;
 
 export async function getGptProfile(userId: string) {
   const admin = createAdminClient();
@@ -50,9 +51,12 @@ export async function getGptMasterData() {
     admin.from("equipment").select("id,name,sort_order").order("sort_order"),
   ]);
 
+  if (muscles.error) throw new Error(muscles.error.message);
+  if (equipment.error) throw new Error(equipment.error.message);
+
   return {
-    muscleGroups: muscles.error ? MUSCLE_GROUPS : (muscles.data as MuscleGroup[] | null) ?? MUSCLE_GROUPS,
-    equipment: equipment.error ? EQUIPMENT : (equipment.data as Equipment[] | null) ?? EQUIPMENT,
+    muscleGroups: (muscles.data as MuscleGroup[] | null) ?? MUSCLE_GROUPS,
+    equipment: (equipment.data as Equipment[] | null) ?? EQUIPMENT,
   };
 }
 
@@ -82,8 +86,8 @@ export async function getAllGptWorkouts(userId: string, options: { days: number 
   const pageSize = 1000;
   const workouts: SupabaseWorkout[] = [];
 
-  for (let rangeFrom = 0; ; rangeFrom += pageSize) {
-    const rangeTo = rangeFrom + pageSize - 1;
+  for (let rangeFrom = 0; rangeFrom < GPT_STATS_WORKOUT_ROW_CAP; rangeFrom += pageSize) {
+    const rangeTo = Math.min(rangeFrom + pageSize - 1, GPT_STATS_WORKOUT_ROW_CAP - 1);
     const { data, error } = await admin
       .from("workouts")
       .select(WORKOUT_SELECT)
@@ -101,7 +105,7 @@ export async function getAllGptWorkouts(userId: string, options: { days: number 
 
     const page = (data as SupabaseWorkout[] | null) ?? [];
     workouts.push(...page);
-    if (page.length < pageSize) break;
+    if (page.length < pageSize || workouts.length >= GPT_STATS_WORKOUT_ROW_CAP) break;
   }
 
   return normalizeWorkouts(workouts);
@@ -185,8 +189,8 @@ async function getAllLegacyGptWorkouts(userId: string, options: { days: number }
   const pageSize = 1000;
   const workouts: SupabaseWorkout[] = [];
 
-  for (let rangeFrom = 0; ; rangeFrom += pageSize) {
-    const rangeTo = rangeFrom + pageSize - 1;
+  for (let rangeFrom = 0; rangeFrom < GPT_STATS_WORKOUT_ROW_CAP; rangeFrom += pageSize) {
+    const rangeTo = Math.min(rangeFrom + pageSize - 1, GPT_STATS_WORKOUT_ROW_CAP - 1);
     const { data, error } = await admin
       .from("workouts")
       .select(LEGACY_WORKOUT_SELECT)
@@ -200,7 +204,7 @@ async function getAllLegacyGptWorkouts(userId: string, options: { days: number }
 
     const page = (data as SupabaseWorkout[] | null) ?? [];
     workouts.push(...page);
-    if (page.length < pageSize) break;
+    if (page.length < pageSize || workouts.length >= GPT_STATS_WORKOUT_ROW_CAP) break;
   }
 
   return normalizeWorkouts(workouts);

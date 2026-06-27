@@ -1,6 +1,7 @@
 import { BottomNav, PageTitle } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData } from "@/lib/data";
+import { toJstDateInputValue } from "@/lib/date";
 import { requireOnboardedUser } from "@/lib/supabase/server";
 import { getTemplateById } from "@/lib/templates";
 import { RecordForm } from "./record-form";
@@ -31,6 +32,7 @@ export default async function RecordPage({
         equipment={equipment}
         initialTemplateName={template?.name}
         initialExercises={template?.template_exercises}
+        initialDate={toJstDateInputValue()}
       />
     </PhoneShell>
   );

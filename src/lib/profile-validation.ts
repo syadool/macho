@@ -27,7 +27,11 @@ export function validateEditableProfile(input: EditableProfilePayload): { ok: tr
       experience_level: input.experience_level,
       weekly_frequency: input.weekly_frequency,
       focus_muscle_group_ids: Array.from(
-        new Set(focusMuscleGroupIds.filter((id) => typeof id === "string" && UUID_PATTERN.test(id))),
+        new Set(
+          focusMuscleGroupIds
+            .filter((id) => typeof id === "string" && UUID_PATTERN.test(id))
+            .map((id) => id.toLowerCase()),
+        ),
       ),
     },
   };
@@ -37,7 +41,7 @@ export function validateProfileFocusMuscleIds(
   payload: EditableProfilePayload,
   validMuscleGroupIds: string[],
 ): { ok: true; payload: EditableProfilePayload } | { ok: false; message: string } {
-  const validIds = new Set(validMuscleGroupIds);
+  const validIds = new Set(validMuscleGroupIds.map((id) => id.toLowerCase()));
   if (payload.focus_muscle_group_ids.some((id) => !validIds.has(id))) {
     return { ok: false, message: "重点部位の指定が不正です。" };
   }

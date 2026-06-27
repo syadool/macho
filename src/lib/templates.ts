@@ -53,40 +53,17 @@ export async function createTemplate(input: {
   source_log_id: string | null;
   exercises: SuggestionExercise[];
 }) {
-  const { supabase, user } = await requireOnboardedUser();
-  const { data: template, error: templateError } = await supabase
-    .from("workout_templates")
-    .insert({
-      user_id: user.id,
-      name: input.name,
-      source: input.source,
-      source_log_id: input.source_log_id,
-    })
-    .select("id")
-    .single();
+  const { supabase } = await requireOnboardedUser();
+  const { data, error } = await supabase.rpc("create_template_with_exercises", {
+    p_name: input.name,
+    p_source: input.source,
+    p_source_log_id: input.source_log_id,
+    p_exercises: input.exercises,
+  });
 
-  if (templateError) throw new Error(templateError.message);
-  const templateId = (template as { id: string }).id;
-  const rows = input.exercises.map((exercise, index) => ({
-    template_id: templateId,
-    exercise_name: exercise.exercise_name,
-    muscle_group_id: exercise.muscle_group_id,
-    muscle_sub_group_id: exercise.muscle_sub_group_id,
-    equipment_id: exercise.equipment_id,
-    target_sets: exercise.target_sets,
-    target_reps: exercise.target_reps,
-    target_weight_kg: exercise.target_weight_kg,
-    notes: exercise.notes,
-    sort_order: index + 1,
-  }));
-
-  const { error: exerciseError } = await supabase.from("template_exercises").insert(rows);
-  if (exerciseError) {
-    await supabase.from("workout_templates").delete().eq("id", templateId).eq("user_id", user.id);
-    throw new Error(exerciseError.message);
-  }
-
-  return templateId;
+  if (error) throw new Error(error.message);
+  if (typeof data !== "string") throw new Error("テンプレートの作成に失敗しました。");
+  return data;
 }
 
 export async function createTemplateFromSuggestion(input: { name: string; suggestionId: string }) {

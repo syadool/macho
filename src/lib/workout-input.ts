@@ -1,4 +1,5 @@
 import type { ExerciseType, NewExercisePayload } from "@/lib/types";
+import { isFutureJstDateInput } from "@/lib/date";
 
 export type WorkoutRpcSetPayload = {
   set_number: number;
@@ -29,6 +30,10 @@ const MAX_SETS = 20;
 export function validateWorkoutInput(date: string, exercises: NewExercisePayload[]): WorkoutInputValidationResult {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return { ok: false, message: "トレーニング日を選択してください。" };
+  }
+
+  if (isFutureJstDateInput(date)) {
+    return { ok: false, message: "未来日のワークアウトは記録できません。" };
   }
 
   if (!Array.isArray(exercises) || exercises.length === 0) {
@@ -107,13 +112,20 @@ function normalizeStrengthSets(
   exercise: NewExercisePayload,
   itemNumber: number,
 ): { ok: true; payload: WorkoutRpcSetPayload[] } | { ok: false; message: string } {
-  const rawSets =
-    Array.isArray(exercise.workout_sets) && exercise.workout_sets.length > 0
-      ? exercise.workout_sets
-      : Array.from({ length: exercise.sets }, () => ({
-          weight_kg: exercise.weight_kg,
-          reps: exercise.reps,
-        }));
+  let rawSets: Array<{ weight_kg: unknown; reps: unknown }>;
+
+  if (Array.isArray(exercise.workout_sets) && exercise.workout_sets.length > 0) {
+    rawSets = exercise.workout_sets;
+  } else {
+    const setCount = readInteger(exercise.sets, 1, MAX_SETS);
+    if (setCount === null) {
+      return { ok: false, message: `${itemNumber}件目のセット数は1〜${MAX_SETS}で入力してください。` };
+    }
+    rawSets = Array.from({ length: setCount }, () => ({
+      weight_kg: exercise.weight_kg,
+      reps: exercise.reps,
+    }));
+  }
 
   if (rawSets.length < 1 || rawSets.length > MAX_SETS) {
     return { ok: false, message: `${itemNumber}件目のセット数は1〜${MAX_SETS}で入力してください。` };
@@ -145,12 +157,12 @@ function normalizeStrengthSets(
 }
 
 function normalizeUuid(value: string | null | undefined) {
-  return typeof value === "string" && UUID_PATTERN.test(value) ? value : null;
+  return typeof value === "string" && UUID_PATTERN.test(value) ? value.toLowerCase() : null;
 }
 
 function normalizeOptionalUuid(value: string | null | undefined) {
   if (value === null || value === undefined || value === "") return null;
-  return UUID_PATTERN.test(value) ? value : undefined;
+  return UUID_PATTERN.test(value) ? value.toLowerCase() : undefined;
 }
 
 function normalizeUuidList(value: unknown, maxItems: number) {
@@ -159,7 +171,8 @@ function normalizeUuidList(value: unknown, maxItems: number) {
   const ids: string[] = [];
   for (const item of value) {
     if (typeof item !== "string" || !UUID_PATTERN.test(item)) return null;
-    if (!ids.includes(item)) ids.push(item);
+    const id = item.toLowerCase();
+    if (!ids.includes(id)) ids.push(id);
     if (ids.length > maxItems) return null;
   }
 

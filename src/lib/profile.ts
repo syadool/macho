@@ -5,6 +5,7 @@ type EditableProfileInput = Partial<
   Omit<
     UserProfile,
     | "user_id"
+    | "onboarding_completed"
     | "ai_suggestion_enabled"
     | "subscription_tier"
     | "stripe_customer_id"

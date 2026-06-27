@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { BottomNav, PageTitle } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData, getWorkoutById } from "@/lib/data";
+import { toJstDateInputValue } from "@/lib/date";
 import { requireOnboardedUser } from "@/lib/supabase/server";
 import { EditWorkoutForm } from "./edit-workout-form";
 
@@ -32,7 +33,12 @@ export default async function EditWorkoutPage({
         </PageTitle>
       </section>
 
-      <EditWorkoutForm workout={workout} muscleGroups={masterData.muscleGroups} equipment={masterData.equipment} />
+      <EditWorkoutForm
+        workout={workout}
+        muscleGroups={masterData.muscleGroups}
+        equipment={masterData.equipment}
+        maxDate={toJstDateInputValue()}
+      />
     </PhoneShell>
   );
 }

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { getConfiguredAppUrl } from "@/lib/app-url";
 import { getTierForStripePriceId } from "@/lib/billing/plans";
 import { getStripeClient } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireApiOnboardedUser } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,6 +12,9 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   const auth = await requireApiOnboardedUser();
   if (!auth.ok) return NextResponse.json({ error: auth.status === 401 ? "unauthorized" : "not_onboarded" }, { status: auth.status });
+  if (!(await checkRateLimit({ scope: "billing_checkout", identifier: auth.user.id, limit: 10, windowSeconds: 60 }))) {
+    return NextResponse.json({ error: "rate_limit_exceeded" }, { status: 429 });
+  }
 
   let body: unknown;
   try {
@@ -67,7 +72,8 @@ export async function POST(req: Request) {
   );
   if (existingSession?.url) return NextResponse.json({ url: existingSession.url });
 
-  const origin = getBaseUrl(req);
+  const origin = getConfiguredAppUrl();
+  if (!origin) return NextResponse.json({ error: "app_url_not_configured" }, { status: 500 });
   const idempotencyWindow = Math.floor(Date.now() / (15 * 60 * 1000));
   const session = await stripe.checkout.sessions.create(
     {
@@ -97,8 +103,4 @@ function getPriceId(body: unknown) {
   if (typeof body !== "object" || body === null) return null;
   const priceId = (body as Record<string, unknown>).price_id;
   return typeof priceId === "string" && priceId.startsWith("price_") ? priceId : null;
-}
-
-function getBaseUrl(req: Request) {
-  return process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? new URL(req.url).origin;
 }

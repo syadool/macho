@@ -15,6 +15,7 @@ export async function updateWorkout(
   workoutId: string,
   date: string,
   exercises: NewExercisePayload[],
+  expectedUpdatedAt: string,
 ): Promise<UpdateWorkoutState> {
   const validated = validateWorkoutInput(date, exercises);
   if (!validated.ok) return validated;
@@ -25,6 +26,7 @@ export async function updateWorkout(
     p_workout_id: workoutId,
     p_date: date,
     p_exercises: validated.payload,
+    p_expected_updated_at: expectedUpdatedAt,
   });
 
   if (error) {
@@ -37,6 +39,10 @@ export async function updateWorkout(
         ok: false,
         message: "履歴編集にはDBマイグレーションの適用が必要です。先にSupabaseの更新を反映してください。",
       };
+    }
+
+    if (error.message.includes("Workout has been modified")) {
+      return { ok: false, message: "別の画面で更新されています。再読み込みしてから編集してください。" };
     }
 
     console.error("Failed to update workout", error);

@@ -15,7 +15,7 @@ export async function syncStripeSubscription(subscription: Stripe.Subscription, 
 
   const tier = getTierForSubscription(subscription);
   const status = getSubscriptionStatus(subscription.status);
-  const isDeleted = subscription.status === "canceled";
+  const isDeleted = status === "canceled";
   const entitledTier = isDeleted ? "free" : getEntitledSubscriptionTier(tier, status);
   const admin = createAdminClient();
   const { error } = await admin
@@ -26,7 +26,6 @@ export async function syncStripeSubscription(subscription: Stripe.Subscription, 
       subscription_id: isDeleted ? null : subscription.id,
       stripe_customer_id: customerId,
       current_period_end: isDeleted ? null : getCurrentPeriodEnd(subscription),
-      ai_suggestion_enabled: true,
       stripe_subscription_event_created: options.eventCreated ?? null,
     })
     .eq("user_id", userId);
@@ -50,7 +49,6 @@ export async function markSubscriptionDeleted(subscription: Stripe.Subscription,
       subscription_id: null,
       stripe_customer_id: customerId,
       current_period_end: null,
-      ai_suggestion_enabled: true,
       stripe_subscription_event_created: options.eventCreated ?? null,
     })
     .eq("user_id", userId);

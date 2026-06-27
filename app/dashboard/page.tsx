@@ -4,7 +4,7 @@ import { BottomNav, Card } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
 import { getRemainingUsage } from "@/lib/ai/suggest";
 import { getAllWorkouts } from "@/lib/data";
-import { formatShortDate, toDateInputValue } from "@/lib/date";
+import { addDaysToDateInputValue, formatShortDate, getJstWeekStartInputValue, toJstDateInputValue } from "@/lib/date";
 import { getUserProfile } from "@/lib/profile";
 import { requireOnboardedUser } from "@/lib/supabase/server";
 import { primaryMuscle, workoutCardioMinutes, workoutSetCount, workoutSummary, workoutTitle, workoutVolume } from "@/lib/workouts";
@@ -220,23 +220,20 @@ function getRangeLabel(range: DashboardRange) {
 
 function filterWorkoutsByRange(workouts: Awaited<ReturnType<typeof getAllWorkouts>>, range: DashboardRange) {
   const now = new Date();
-  const today = toDateInputValue(now);
+  const today = toJstDateInputValue(now);
 
   if (range === "today") {
     return workouts.filter((workout) => workout.date === today);
   }
 
   if (range === "week") {
-    const monday = getMonday(now);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    const start = toDateInputValue(monday);
-    const end = toDateInputValue(sunday);
+    const start = getJstWeekStartInputValue(now);
+    const end = addDaysToDateInputValue(start, 6);
     return workouts.filter((workout) => workout.date >= start && workout.date <= end);
   }
 
   if (range === "year") {
-    return workouts.filter((workout) => workout.date.startsWith(`${now.getFullYear()}-`));
+    return workouts.filter((workout) => workout.date.startsWith(`${today.slice(0, 4)}-`));
   }
 
   return workouts;
@@ -246,21 +243,11 @@ function formatVolume(volume: number) {
   return Number(volume.toFixed(0)).toLocaleString();
 }
 
-function getMonday(value: Date) {
-  const monday = new Date(value);
-  const day = monday.getDay() || 7;
-  monday.setDate(monday.getDate() - day + 1);
-  return monday;
-}
-
 function getWeeklyVolumes(workouts: Awaited<ReturnType<typeof getAllWorkouts>>) {
-  const now = new Date();
-  const monday = getMonday(now);
+  const monday = getJstWeekStartInputValue();
 
   return WEEK_LABELS.map((label, index) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + index);
-    const key = toDateInputValue(date);
+    const key = addDaysToDateInputValue(monday, index);
     const volume = workouts.filter((workout) => workout.date === key).reduce((total, workout) => total + workoutVolume(workout), 0);
     return { label, volume };
   });

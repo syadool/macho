@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { authenticateGptRequest } from "@/lib/gpt/auth";
 import { getAllGptWorkouts } from "@/lib/gpt/data";
 import { buildGptStats } from "@/lib/gpt/serialize";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -9,13 +10,16 @@ export const runtime = "nodejs";
 export async function GET(req: Request) {
   const userId = await authenticateGptRequest(req);
   if (!userId) return jsonError("Unauthorized", 401);
+  if (!(await checkRateLimit({ scope: "gpt", identifier: userId.keyHash, limit: 120, windowSeconds: 60 }))) {
+    return jsonError("Rate limit exceeded", 429);
+  }
 
   const url = new URL(req.url);
   const days = parseBoundedInt(url.searchParams.get("days"), 30, 1, 365);
   if (days === null) return jsonError("Invalid query parameter", 400);
 
   try {
-    const workouts = await getAllGptWorkouts(userId, { days });
+    const workouts = await getAllGptWorkouts(userId.userId, { days });
     return NextResponse.json(buildGptStats(workouts, days));
   } catch (error) {
     console.error("GPT stats API failed", error);

@@ -19,10 +19,10 @@ type SupabaseWorkout = Omit<Workout, "workout_exercises"> & {
 };
 
 const WORKOUT_SELECT =
-  "id,date,created_at,workout_exercises(id,exercise_name,exercise_type,duration_minutes,distance_km,calories,sort_order,muscle_groups(id,name,name_en,color,sort_order),workout_exercise_sub_groups(muscle_sub_groups(id,muscle_group_id,name,sort_order)),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))";
+  "id,date,created_at,updated_at,workout_exercises(id,exercise_name,exercise_type,duration_minutes,distance_km,calories,sort_order,muscle_groups(id,name,name_en,color,sort_order),workout_exercise_sub_groups(muscle_sub_groups(id,muscle_group_id,name,sort_order)),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))";
 
 const LEGACY_WORKOUT_SELECT =
-  "id,date,created_at,workout_exercises(id,exercise_name,sort_order,muscle_groups(id,name,name_en,color,sort_order),muscle_sub_groups!workout_exercises_muscle_sub_group_id_fkey(id,muscle_group_id,name,sort_order),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))";
+  "id,date,created_at,updated_at,workout_exercises(id,exercise_name,sort_order,muscle_groups(id,name,name_en,color,sort_order),muscle_sub_groups!workout_exercises_muscle_sub_group_id_fkey(id,muscle_group_id,name,sort_order),equipment(id,name,sort_order),workout_sets(id,set_number,weight_kg,reps))";
 
 export async function getMasterData() {
   const { supabase } = await requireUser();
@@ -35,6 +35,9 @@ export async function getMasterData() {
       .order("sort_order", { referencedTable: "muscle_sub_groups" }),
     supabase.from("equipment").select("id,name,sort_order").order("sort_order"),
   ]);
+
+  if (muscles.error) throw new Error(muscles.error.message);
+  if (equipment.error) throw new Error(equipment.error.message);
 
   return {
     muscleGroups: (muscles.data as MuscleGroup[] | null) ?? MUSCLE_GROUPS,
@@ -115,12 +118,20 @@ export async function getWorkoutById(id: string) {
       .eq("id", id)
       .single();
 
-    if (legacy.error) return null;
+    if (isNotFoundError(legacy.error)) return null;
+    if (legacy.error) {
+      console.error("Failed to load legacy workout by id", legacy.error);
+      throw new Error(legacy.error.message);
+    }
     const [workout] = normalizeWorkouts(legacy.data ? [legacy.data as SupabaseWorkout] : []);
     return workout ?? null;
   }
 
-  if (error) return null;
+  if (isNotFoundError(error)) return null;
+  if (error) {
+    console.error("Failed to load workout by id", error);
+    throw new Error(error.message);
+  }
   const [workout] = normalizeWorkouts(data ? [data as SupabaseWorkout] : []);
   return workout ?? null;
 }
@@ -168,6 +179,10 @@ function isLegacyWorkoutSchemaError(error: { code?: string; message?: string } |
         error.message?.includes("calories") ||
         error.message?.includes("workout_exercise_sub_groups")),
   );
+}
+
+function isNotFoundError(error: { code?: string } | null) {
+  return error?.code === "PGRST116";
 }
 
 async function getAllLegacyWorkouts(userId: string) {
