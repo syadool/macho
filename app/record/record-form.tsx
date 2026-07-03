@@ -4,7 +4,8 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Activity, Check, Dumbbell, Minus, Plus, X } from "lucide-react";
 import { Card, OutlineButton, PrimaryButton } from "@/components/ui";
-import { formatSetsSummary, SetRowsEditor } from "@/components/workout-sets";
+import { SetRowsEditor } from "@/components/workout-sets";
+import { formatSetsSummary } from "@/lib/sets";
 import type {
   Equipment,
   ExerciseHistoryEntry,

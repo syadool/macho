@@ -5,7 +5,7 @@ import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData, getWorkouts } from "@/lib/data";
 import { formatHistoryDate } from "@/lib/date";
 import { requireOnboardedUser } from "@/lib/supabase/server";
-import { formatSetsSummary } from "@/components/workout-sets";
+import { formatSetsSummary } from "@/lib/sets";
 import {
   isCardioExercise,
   primaryMuscle,
