@@ -1,5 +1,7 @@
 # MACHO - AIメニュー提案機能 実装手順書 (Codex 向け)
 
+> この機能は廃止されました（2026-07）。
+
 > 親仕様書: [SPECIFICATION_AI_SUGGESTION.md](./SPECIFICATION_AI_SUGGESTION.md)
 > 本書は実装を 17 ステップに分解した手順書。**1ステップ = 1コミット相当**。
 

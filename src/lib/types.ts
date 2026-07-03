@@ -71,6 +71,16 @@ export type NewExercisePayload = {
   calories: number | null;
 };
 
+export type ExerciseHistoryEntry = {
+  exercise_name: string;
+  exercise_type: ExerciseType;
+  muscle_group_id: string | null;
+  last_used_at: string;
+  last_duration_minutes: number | null;
+  last_sets: NewWorkoutSetPayload[];
+  use_count: number;
+};
+
 export type TrainingGoal = "hypertrophy" | "strength" | "fat_loss" | "maintenance";
 
 export type ExperienceLevel = "beginner" | "intermediate" | "advanced";
@@ -122,23 +132,3 @@ export type WorkoutTemplate = {
   template_exercises: TemplateExercise[];
 };
 
-export type SuggestionExercise = Omit<TemplateExercise, "id" | "sort_order" | "muscle_groups" | "muscle_sub_groups" | "equipment"> & {
-  muscle_group_id: string;
-};
-
-export type SuggestionResult = {
-  suggestion_id: string;
-  overall_comment: string;
-  exercises: SuggestionExercise[];
-  usage: AIUsage;
-};
-
-export type AIUsage = {
-  used_today: number;
-  limit_today: number;
-  remaining_today: number;
-  used_this_month: number;
-  limit_this_month: number;
-  remaining_this_month: number;
-  reset_at: string;
-};

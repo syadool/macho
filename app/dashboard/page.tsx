@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { BookOpen, ChevronRight, Settings, Sparkles } from "lucide-react";
+import { BookOpen, ChevronRight, Settings } from "lucide-react";
 import { BottomNav, Card } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
-import { getRemainingUsage } from "@/lib/ai/suggest";
 import { getAllWorkouts } from "@/lib/data";
 import { addDaysToDateInputValue, formatShortDate, getJstWeekStartInputValue, toJstDateInputValue } from "@/lib/date";
-import { getUserProfile } from "@/lib/profile";
 import { requireOnboardedUser } from "@/lib/supabase/server";
 import { primaryMuscle, workoutCardioMinutes, workoutSetCount, workoutSummary, workoutTitle, workoutVolume } from "@/lib/workouts";
 import { shortMuscleName } from "@/lib/constants";
@@ -27,9 +25,8 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ range?: string }>;
 }) {
-  const { user } = await requireOnboardedUser();
-  const [{ range }, workouts, profile] = await Promise.all([searchParams, getAllWorkouts(), getUserProfile()]);
-  const aiUsage = await getRemainingUsage(user.id, profile?.subscription_tier ?? "free", profile?.subscription_status ?? "none");
+  await requireOnboardedUser();
+  const [{ range }, workouts] = await Promise.all([searchParams, getAllWorkouts()]);
   const activeRange = parseDashboardRange(range);
   const rangeWorkouts = filterWorkoutsByRange(workouts, activeRange);
   const exerciseCount = rangeWorkouts.reduce((total, workout) => total + workout.workout_exercises.length, 0);
@@ -140,26 +137,6 @@ export default async function DashboardPage({
               <p className="text-[13px] font-medium">テンプレート</p>
               <p className="text-[11px] text-macho-muted">保存したメニューから記録を開始</p>
             </div>
-            <ChevronRight size={16} className="text-macho-muted" />
-          </Card>
-        </Link>
-
-        <Link href="/suggest" className="mt-3 block">
-          <Card className={`flex items-center gap-3 ${profile?.ai_suggestion_enabled ? "" : "opacity-55"}`}>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-macho-lime/10 text-macho-lime">
-              <Sparkles size={20} />
-            </div>
-            <div className="flex-1">
-              <p className="text-[13px] font-medium">AIメニュー提案</p>
-              <p className="text-[11px] text-macho-muted">
-                {profile?.ai_suggestion_enabled ? "ChatGPTが次回メニューを提案" : "利用準備中"}
-              </p>
-            </div>
-            {profile?.ai_suggestion_enabled && (
-              <span className="rounded-full border border-macho-lime/40 px-2 py-1 text-[10px] font-semibold text-macho-lime">
-                残り{aiUsage.remaining_this_month}
-              </span>
-            )}
             <ChevronRight size={16} className="text-macho-muted" />
           </Card>
         </Link>

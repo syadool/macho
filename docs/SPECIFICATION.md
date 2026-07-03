@@ -57,22 +57,23 @@
   - 部位カラーアイコン + 部位名
   - エクササイズ概要
   - 日付 + セット数
-- **AIメニュー提案カード** (将来機能, グレーアウト表示)
 - **ボトムナビゲーション**: ホーム / 記録(FABボタン) / 履歴
 
-### 4.3 記録画面
+> 旧仕様にあった「AIメニュー提案カード」は廃止済み（詳細は [SPECIFICATION_AI_SUGGESTION.md](./SPECIFICATION_AI_SUGGESTION.md) 参照）。
+
+### 4.3 記録画面（詳細は [SPECIFICATION_RECORD_V2.md](./SPECIFICATION_RECORD_V2.md) 参照）
 - **ヘッダー**: 「新規記録」
-- **部位選択グリッド (3x2)**:
+- **日付選択**: 今日をデフォルト表示
+- **筋トレ/有酸素タブ**
+- **エクササイズ名入力**: テキスト入力 + **履歴サジェスト**（過去の `workout_exercises` から頻度順/直近順に候補表示。テンプレートからの読み込みも継続利用可能）。候補タップで部位・前回のセット内容を自動セット
+- **部位選択グリッド (3x2)**（筋トレ時のみ）:
   - 漢字アイコン + 英語ラベル
   - 選択時: ライムグリーンボーダー + 背景ハイライト
-- **サブカテゴリ選択**: ピル型ボタン（例: 大胸筋上部/中部/下部）
-- **エクササイズ名入力**: テキスト入力フィールド
-- **器具選択**: ピル型ボタン（バーベル/ダンベル/マシン/ケーブル/自重）
-- **数値入力 (3列)**:
-  - 重量 (kg): -/+ステッパー
-  - 回数: -/+ステッパー
-  - セット数: -/+ステッパー
-- **追加済みエクササイズリスト**: 部位カラーバー + 詳細
+  - サブカテゴリ・器具の選択UIは廃止（DBマスタ・カラムは温存し、将来の再導入に備える）
+- **セット入力（セット単位）**: セット番号ごとに行を分け、行ごとに重量(kg)・回数を個別入力可能（セットごとに重量を変えられる）
+  - 「+ セット追加」で直前セットの値をコピーして行を追加、行削除も可能（最低1行）
+- **有酸素入力**: エクササイズ名 + 時間（分）のみ。距離・カロリーの入力は廃止（DB列は温存、保存時は null）
+- **追加済みエクササイズリスト**: 部位カラーバー + 詳細（セットごとに重量が異なる場合は「60kg×10, 65kg×8, 70kg×6」形式で表示）
 - **アクションボタン**:
   - 「エクササイズを追加」（アウトラインボタン）
   - 「ワークアウトを保存」（プライマリボタン）
@@ -84,7 +85,7 @@
   - 日付ラベル
   - 部位カラードット + トレーニング名
   - エクササイズ詳細（タイムライン表示）:
-    - エクササイズ名 + 器具バッジ
+    - エクササイズ名（筋トレ時はセットごとの重量×回数、有酸素時は時間のみを表示。器具バッジ・距離・カロリーは表示しない）
     - 重量 x 回数 x セット数（ライムグリーン）
   - フッター: 合計セット数 + 総ボリューム
 
@@ -101,7 +102,7 @@
 | color | text | カラーコード |
 | sort_order | int | 表示順 |
 
-#### `muscle_sub_groups` (サブカテゴリマスタ)
+#### `muscle_sub_groups` (サブカテゴリマスタ・**選択UIは廃止**)
 | カラム | 型 | 説明 |
 |--------|------|------|
 | id | uuid (PK) | |
@@ -109,12 +110,16 @@
 | name | text | 大胸筋上部, 広背筋 等 |
 | sort_order | int | 表示順 |
 
-#### `equipment` (器具マスタ)
+> 記録画面からサブカテゴリ選択UIは廃止した。テーブル・データは温存し、将来の再導入に備える。
+
+#### `equipment` (器具マスタ・**選択UIは廃止**)
 | カラム | 型 | 説明 |
 |--------|------|------|
 | id | uuid (PK) | |
 | name | text | バーベル, ダンベル 等 |
 | sort_order | int | 表示順 |
+
+> 記録画面から器具選択UIは廃止した。テーブル・データは温存し、将来の再導入に備える。
 
 #### `workouts` (ワークアウト記録)
 | カラム | 型 | 説明 |
@@ -132,9 +137,11 @@
 | workout_id | uuid (FK) | workouts.id |
 | exercise_name | text | エクササイズ名 |
 | muscle_group_id | uuid (FK) | 部位 |
-| muscle_sub_group_id | uuid (FK, nullable) | サブカテゴリ |
-| equipment_id | uuid (FK, nullable) | 器具 |
+| muscle_sub_group_id | uuid (FK, nullable) | サブカテゴリ（**UIからは廃止、列は温存**） |
+| equipment_id | uuid (FK, nullable) | 器具（**UIからは廃止、列は温存**） |
 | sort_order | int | 表示順 |
+
+> 有酸素種目の `distance_km` / `calories` に相当する列は `workouts`/`workout_exercises` 側ではなく後述のカーディオ用カラムで管理。UIからの入力は廃止したが列自体は温存し、保存時は null。
 
 #### `workout_sets` (セット記録)
 | カラム | 型 | 説明 |
@@ -142,9 +149,11 @@
 | id | uuid (PK) | |
 | workout_exercise_id | uuid (FK) | workout_exercises.id |
 | set_number | int | セット番号 |
-| weight_kg | decimal | 重量 (kg) |
+| weight_kg | decimal | 重量 (kg)。**セットごとに異なる値を保存可能** |
 | reps | int | 回数 |
 | created_at | timestamptz | 作成日時 |
+
+> 記録画面はこのテーブルの粒度（セットごとの重量・回数）にそのまま対応する形で作り直した。マイグレーションは不要。
 
 ### 5.2 RLS (Row Level Security)
 - `workouts`: ユーザーは自分のデータのみCRUD可能
@@ -188,8 +197,8 @@ app/
 ├── history/
 │   └── page.tsx          # 履歴画面
 └── api/
-    └── suggest/          # (将来) ChatGPTメニュー提案
-        └── route.ts
+    └── gpt/              # ChatGPT Custom GPT Actions 用エクスポートAPI
+        └── ...
 ```
 
 ### Supabase クエリ例
@@ -197,20 +206,18 @@ app/
 - 記録: INSERT workout → INSERT exercises → INSERT sets (トランザクション)
 - 履歴: 日付降順でワークアウト一覧 + フィルタ
 
-## 8. 将来拡張
+## 8. 現行機能・将来拡張
 
-### ChatGPT メニュー提案機能
-詳細仕様は [SPECIFICATION_AI_SUGGESTION.md](./SPECIFICATION_AI_SUGGESTION.md) を参照。
+### ChatGPT Custom GPT Actions 連携（現行機能）
+詳細仕様は [SPECIFICATION_GPT_ACTIONS.md](./SPECIFICATION_GPT_ACTIONS.md) を参照。
 
-- **API Route**: `/api/suggest`
-- **モデル**: OpenAI GPT-4o-mini
-- **アクセス制御**: 多層防御（許可リスト + 個別レート制限 + グローバルキャップ）
-- **パーソナライズ**: 初回オンボーディングで目標・レベル・頻度・重点部位をヒアリング
-- **テンプレート保存**: 気に入った提案を保存し、後の記録作成に再利用可能
+顧客が普段使っているChatGPT（Custom GPT）からMACHOのトレーニングデータを自動取得・分析できるようにするエクスポート機能。`app/api/gpt/*` のREST APIとOpenAPIスキーマで実装。セット単位の重量・回数をそのままシリアライズしてエクスポートする。
+
+### AIメニュー提案機能（廃止済み）
+自前でChatGPT (OpenAI API) にメニュー提案をさせる機能は**廃止した**。旧仕様は [SPECIFICATION_AI_SUGGESTION.md](./SPECIFICATION_AI_SUGGESTION.md) を参照（冒頭に廃止注記あり）。課金基盤（Stripe, `app/pricing/`, `app/settings/billing/`, `app/api/billing/`）はコードを温存しており、AI利用に紐づかない形で運用中。プロフィール（目標・レベル・頻度）自体はGPT Actionsエクスポートが利用するため残している。
 
 ### その他の拡張候補
 - プログレッショントラッキング（重量推移グラフ）
-- ワークアウトテンプレート（よく使うメニューの保存）
 - タイマー機能（インターバル計測）
 - エクスポート機能（CSV出力）
 

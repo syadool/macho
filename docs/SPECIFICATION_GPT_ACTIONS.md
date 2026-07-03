@@ -2,7 +2,7 @@
 
 > 親仕様書: [SPECIFICATION.md](./SPECIFICATION.md)
 > 本書は、顧客のChatGPTがMACHOのトレーニングデータを自動取得・分析できるようにする
-> Custom GPT Actions 連携機能の設計仕様。**未実装（設計のみ）**。
+> Custom GPT Actions 連携機能の仕様。**実装済み**（`/api/gpt/*` + APIキー管理画面）。
 
 ---
 

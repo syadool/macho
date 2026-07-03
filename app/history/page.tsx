@@ -5,10 +5,10 @@ import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData, getWorkouts } from "@/lib/data";
 import { formatHistoryDate } from "@/lib/date";
 import { requireOnboardedUser } from "@/lib/supabase/server";
+import { formatSetsSummary } from "@/components/workout-sets";
 import {
   isCardioExercise,
   primaryMuscle,
-  workoutCardioDistance,
   workoutCardioMinutes,
   workoutSetCount,
   workoutTitle,
@@ -84,15 +84,10 @@ export default async function HistoryPage({
                               {subGroup.name}
                             </span>
                           ))}
-                          {exercise.equipment && (
-                            <span className="rounded-lg bg-macho-surface px-2 py-0.5 text-[11px] text-macho-muted">
-                              {exercise.equipment.name}
-                            </span>
-                          )}
                         </div>
                       </div>
                       <p className="mt-0.5 text-xs text-macho-lime">
-                        {isCardioExercise(exercise) ? describeCardio(exercise) : describeSets(exercise.workout_sets)}
+                        {isCardioExercise(exercise) ? describeCardio(exercise) : formatSetsSummary(exercise.workout_sets)}
                       </p>
                     </div>
                   ))}
@@ -102,7 +97,7 @@ export default async function HistoryPage({
                   <span>合計 {workoutSetCount(workout)}set</span>
                   <span>
                     {workoutCardioMinutes(workout) > 0
-                      ? `${workoutCardioMinutes(workout)}分 / ${formatDistance(workoutCardioDistance(workout))}`
+                      ? `${workoutCardioMinutes(workout)}分`
                       : `総ボリューム ${workoutVolume(workout).toLocaleString()}kg`}
                   </span>
                 </div>
@@ -122,28 +117,6 @@ export default async function HistoryPage({
   );
 }
 
-function describeSets(sets: { weight_kg: number; reps: number }[]) {
-  const first = sets[0];
-  if (!first) return "セットなし";
-  const same = sets.every((set) => Number(set.weight_kg) === Number(first.weight_kg) && set.reps === first.reps);
-  if (same) return `${Number(first.weight_kg)}kg x ${first.reps}回 x ${sets.length}set`;
-  return sets.map((set) => `${Number(set.weight_kg)}kg x ${set.reps}回`).join(" / ");
-}
-
-function describeCardio(exercise: {
-  duration_minutes: number | null;
-  distance_km: number | null;
-  calories: number | null;
-}) {
-  const values = [
-    exercise.duration_minutes ? `${exercise.duration_minutes}分` : null,
-    exercise.distance_km ? formatDistance(Number(exercise.distance_km)) : null,
-    exercise.calories ? `${exercise.calories}kcal` : null,
-  ].filter(Boolean);
-
-  return values.length > 0 ? values.join(" / ") : "有酸素";
-}
-
-function formatDistance(distance: number) {
-  return `${Number(distance.toFixed(2)).toLocaleString()}km`;
+function describeCardio(exercise: { duration_minutes: number | null }) {
+  return exercise.duration_minutes ? `${exercise.duration_minutes}分` : "有酸素";
 }

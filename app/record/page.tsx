@@ -4,6 +4,7 @@ import { getMasterData } from "@/lib/data";
 import { toJstDateInputValue } from "@/lib/date";
 import { requireOnboardedUser } from "@/lib/supabase/server";
 import { getTemplateById } from "@/lib/templates";
+import { getExerciseHistory } from "@/lib/workouts";
 import { RecordForm } from "./record-form";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +16,10 @@ export default async function RecordPage({
 }) {
   await requireOnboardedUser();
   const { template_id: templateId } = await searchParams;
-  const [{ muscleGroups, equipment }, template] = await Promise.all([
+  const [{ muscleGroups, equipment }, template, exerciseHistory] = await Promise.all([
     getMasterData(),
     templateId ? getTemplateById(templateId) : Promise.resolve(null),
+    getExerciseHistory(),
   ]);
 
   return (
@@ -33,6 +35,7 @@ export default async function RecordPage({
         initialTemplateName={template?.name}
         initialExercises={template?.template_exercises}
         initialDate={toJstDateInputValue()}
+        exerciseHistory={exerciseHistory}
       />
     </PhoneShell>
   );

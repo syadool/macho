@@ -1,5 +1,7 @@
 # MACHO - AIメニュー提案機能 仕様書
 
+> この機能は廃止されました（2026-07）。
+
 > 親仕様書: [SPECIFICATION.md](./SPECIFICATION.md)
 > 本書は「8. 将来拡張 / ChatGPT メニュー提案機能」の詳細仕様。
 

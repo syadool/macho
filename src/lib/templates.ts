@@ -1,7 +1,5 @@
-import { validateSuggestionPayload } from "@/lib/ai/suggestion-validation";
-import { getMasterData } from "@/lib/data";
 import { requireOnboardedUser } from "@/lib/supabase/server";
-import type { Equipment, MuscleGroup, MuscleSubGroup, SuggestionExercise, TemplateExercise, TemplateSource, WorkoutTemplate } from "@/lib/types";
+import type { Equipment, MuscleGroup, MuscleSubGroup, TemplateExercise, TemplateSource, WorkoutTemplate } from "@/lib/types";
 
 type SupabaseTemplateExercise = Omit<TemplateExercise, "muscle_groups" | "muscle_sub_groups" | "equipment"> & {
   muscle_groups: MuscleGroup | MuscleGroup[] | null;
@@ -51,7 +49,7 @@ export async function createTemplate(input: {
   name: string;
   source: TemplateSource;
   source_log_id: string | null;
-  exercises: SuggestionExercise[];
+  exercises: Omit<TemplateExercise, "id" | "sort_order" | "muscle_groups" | "muscle_sub_groups" | "equipment">[];
 }) {
   const { supabase } = await requireOnboardedUser();
   const { data, error } = await supabase.rpc("create_template_with_exercises", {
@@ -64,30 +62,6 @@ export async function createTemplate(input: {
   if (error) throw new Error(error.message);
   if (typeof data !== "string") throw new Error("テンプレートの作成に失敗しました。");
   return data;
-}
-
-export async function createTemplateFromSuggestion(input: { name: string; suggestionId: string }) {
-  const { supabase, user } = await requireOnboardedUser();
-  const { data, error } = await supabase
-    .from("ai_suggestion_logs")
-    .select("response_payload")
-    .eq("id", input.suggestionId)
-    .eq("user_id", user.id)
-    .in("status", ["success", "cached"])
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  if (!data?.response_payload) throw new Error("AI提案が見つかりません。");
-
-  const { muscleGroups, equipment } = await getMasterData();
-  const payload = validateSuggestionPayload(data.response_payload, muscleGroups, equipment);
-
-  return createTemplate({
-    name: input.name,
-    source: "ai_suggestion",
-    source_log_id: input.suggestionId,
-    exercises: payload.exercises,
-  });
 }
 
 export async function deleteTemplate(id: string) {

@@ -1,25 +1,39 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, Check, Dumbbell, Minus, Plus } from "lucide-react";
-import { Card, OutlineButton, Pill, PrimaryButton } from "@/components/ui";
-import type { Equipment, ExerciseType, MuscleGroup, NewExercisePayload, WorkoutTemplate } from "@/lib/types";
+import { Activity, Check, Dumbbell, Minus, Plus, X } from "lucide-react";
+import { Card, OutlineButton, PrimaryButton } from "@/components/ui";
+import { formatSetsSummary, SetRowsEditor } from "@/components/workout-sets";
+import type {
+  Equipment,
+  ExerciseHistoryEntry,
+  ExerciseType,
+  MuscleGroup,
+  NewExercisePayload,
+  NewWorkoutSetPayload,
+  WorkoutTemplate,
+} from "@/lib/types";
 import { shortMuscleName } from "@/lib/constants";
 import { saveWorkout } from "./actions";
 
+type SetRow = NewWorkoutSetPayload;
+
+const DEFAULT_SET_ROW: SetRow = { weight_kg: 20, reps: 10 };
+
 export function RecordForm({
   muscleGroups,
-  equipment,
   initialTemplateName,
   initialExercises,
   initialDate,
+  exerciseHistory,
 }: {
   muscleGroups: MuscleGroup[];
   equipment: Equipment[];
   initialTemplateName?: string;
   initialExercises?: WorkoutTemplate["template_exercises"];
   initialDate: string;
+  exerciseHistory: ExerciseHistoryEntry[];
 }) {
   const router = useRouter();
   const [workoutDate, setWorkoutDate] = useState(initialDate);
@@ -29,37 +43,56 @@ export function RecordForm({
     () => muscleGroups.find((group) => group.id === selectedMuscleId) ?? muscleGroups[0],
     [muscleGroups, selectedMuscleId],
   );
-  const subGroups = selectedMuscle?.muscle_sub_groups ?? [];
-  const [selectedSubIds, setSelectedSubIds] = useState<string[]>([]);
-  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string | null>(equipment[0]?.id ?? null);
-  const [exerciseName, setExerciseName] = useState("インクラインベンチプレス");
-  const [weight, setWeight] = useState(60);
-  const [reps, setReps] = useState(10);
-  const [sets, setSets] = useState(3);
+  const [exerciseName, setExerciseName] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [setRows, setSetRows] = useState<SetRow[]>([{ ...DEFAULT_SET_ROW }]);
   const [durationMinutes, setDurationMinutes] = useState(30);
-  const [distanceKm, setDistanceKm] = useState(5);
-  const [calories, setCalories] = useState(250);
   const [exercises, setExercises] = useState<NewExercisePayload[]>(() => templateExercisesToPayload(initialExercises));
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const filteredSuggestions = useMemo(() => {
+    const query = exerciseName.trim().toLowerCase();
+    const candidates = exerciseHistory.filter((entry) => entry.exercise_type === exerciseType);
+    if (!query) return candidates.slice(0, 20);
+    return candidates.filter((entry) => entry.exercise_name.toLowerCase().includes(query)).slice(0, 20);
+  }, [exerciseHistory, exerciseName, exerciseType]);
 
   function chooseMuscle(id: string) {
     setSelectedMuscleId(id);
-    setSelectedSubIds([]);
-  }
-
-  function toggleSubGroup(id: string) {
-    setSelectedSubIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
 
   function chooseExerciseType(type: ExerciseType) {
     setExerciseType(type);
-    if (type === "cardio" && (!exerciseName.trim() || exerciseName === "インクラインベンチプレス")) {
-      setExerciseName("ランニング");
+    setExerciseName("");
+    setShowSuggestions(false);
+  }
+
+  function applySuggestion(entry: ExerciseHistoryEntry) {
+    setExerciseName(entry.exercise_name);
+    if (entry.muscle_group_id) setSelectedMuscleId(entry.muscle_group_id);
+    if (entry.exercise_type === "strength") {
+      setSetRows(entry.last_sets.length > 0 ? entry.last_sets.map((set) => ({ ...set })) : [{ ...DEFAULT_SET_ROW }]);
+    } else if (entry.last_duration_minutes) {
+      setDurationMinutes(entry.last_duration_minutes);
     }
-    if (type === "strength" && (!exerciseName.trim() || exerciseName === "ランニング")) {
-      setExerciseName("インクラインベンチプレス");
-    }
+    setShowSuggestions(false);
+  }
+
+  function addSetRow() {
+    setSetRows((current) => {
+      const last = current[current.length - 1] ?? DEFAULT_SET_ROW;
+      return [...current, { ...last }];
+    });
+  }
+
+  function removeSetRow(index: number) {
+    setSetRows((current) => (current.length <= 1 ? current : current.filter((_, i) => i !== index)));
+  }
+
+  function updateSetRow(index: number, patch: Partial<SetRow>) {
+    setSetRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
   function addExercise() {
@@ -73,22 +106,44 @@ export function RecordForm({
       return;
     }
 
-    setExercises((current) => [
-      ...current,
-      {
-        exercise_type: exerciseType,
-        exercise_name: exerciseName.trim(),
-        muscle_group_id: exerciseType === "strength" ? selectedMuscle?.id ?? null : null,
-        muscle_sub_group_ids: exerciseType === "strength" ? selectedSubIds : [],
-        equipment_id: exerciseType === "strength" ? selectedEquipmentId : null,
-        weight_kg: weight,
-        reps,
-        sets: exerciseType === "strength" ? sets : 0,
-        duration_minutes: exerciseType === "cardio" ? durationMinutes : null,
-        distance_km: exerciseType === "cardio" ? distanceKm : null,
-        calories: exerciseType === "cardio" ? calories : null,
-      },
-    ]);
+    if (exerciseType === "strength") {
+      setExercises((current) => [
+        ...current,
+        {
+          exercise_type: "strength",
+          exercise_name: exerciseName.trim(),
+          muscle_group_id: selectedMuscle?.id ?? null,
+          muscle_sub_group_ids: [],
+          equipment_id: null,
+          weight_kg: setRows[0]?.weight_kg ?? 0,
+          reps: setRows[0]?.reps ?? 0,
+          sets: setRows.length,
+          workout_sets: setRows.map((row) => ({ weight_kg: row.weight_kg, reps: row.reps })),
+          duration_minutes: null,
+          distance_km: null,
+          calories: null,
+        },
+      ]);
+      setSetRows([{ ...DEFAULT_SET_ROW }]);
+    } else {
+      setExercises((current) => [
+        ...current,
+        {
+          exercise_type: "cardio",
+          exercise_name: exerciseName.trim(),
+          muscle_group_id: null,
+          muscle_sub_group_ids: [],
+          equipment_id: null,
+          weight_kg: 0,
+          reps: 0,
+          sets: 0,
+          duration_minutes: durationMinutes,
+          distance_km: null,
+          calories: null,
+        },
+      ]);
+    }
+
     setMessage("");
     setExerciseName("");
   }
@@ -103,6 +158,15 @@ export function RecordForm({
         setMessage(result.message ?? "保存に失敗しました。");
       }
     });
+  }
+
+  function handleNameBlur() {
+    blurTimeoutRef.current = setTimeout(() => setShowSuggestions(false), 120);
+  }
+
+  function handleNameFocus() {
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    setShowSuggestions(true);
   }
 
   return (
@@ -160,19 +224,10 @@ export function RecordForm({
               );
             })}
           </div>
-
-          <p className="mb-1.5 mt-3.5 text-xs font-medium text-macho-muted">サブカテゴリ</p>
-          <div className="flex flex-wrap gap-1.5">
-            {subGroups.map((subGroup) => (
-              <Pill key={subGroup.id} active={selectedSubIds.includes(subGroup.id)} onClick={() => toggleSubGroup(subGroup.id)}>
-                {subGroup.name}
-              </Pill>
-            ))}
-          </div>
         </>
       )}
 
-      <Card className="mt-4">
+      <Card className="relative mt-4">
         <label htmlFor="exercise-name" className="mb-1.5 block text-[11px] text-macho-muted">
           {exerciseType === "strength" ? "エクササイズ名" : "有酸素種目"}
         </label>
@@ -180,35 +235,38 @@ export function RecordForm({
           id="exercise-name"
           value={exerciseName}
           onChange={(event) => setExerciseName(event.target.value)}
+          onFocus={handleNameFocus}
+          onBlur={handleNameBlur}
           placeholder={exerciseType === "strength" ? "ベンチプレス" : "ランニング"}
+          autoComplete="off"
           className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-sm text-macho-text outline-none transition placeholder:text-macho-muted focus:border-macho-lime"
         />
+        {showSuggestions && filteredSuggestions.length > 0 && (
+          <ul className="absolute left-4 right-4 top-[calc(100%-4px)] z-20 max-h-64 overflow-y-auto rounded-[12px] border border-macho-border bg-macho-surface shadow-lg">
+            {filteredSuggestions.map((entry) => (
+              <li key={entry.exercise_name}>
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => applySuggestion(entry)}
+                  className="flex w-full flex-col items-start gap-0.5 border-b border-macho-border/60 px-3.5 py-2.5 text-left last:border-b-0 hover:bg-macho-card"
+                >
+                  <span className="text-sm text-macho-text">{entry.exercise_name}</span>
+                  <span className="text-[11px] text-macho-muted">{suggestionSubtitle(entry)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       {exerciseType === "strength" ? (
-        <>
-          <Card className="mt-2.5">
-            <p className="mb-2 text-[11px] text-macho-muted">器具</p>
-            <div className="flex flex-wrap gap-1.5">
-              {equipment.map((item) => (
-                <Pill key={item.id} active={selectedEquipmentId === item.id} onClick={() => setSelectedEquipmentId(item.id)}>
-                  {item.name}
-                </Pill>
-              ))}
-            </div>
-          </Card>
-
-          <div className="mt-3.5 grid grid-cols-3 gap-2">
-            <Stepper label="重量 (kg)" value={weight} min={0} step={2.5} onChange={setWeight} />
-            <Stepper label="回数" value={reps} min={0} step={1} onChange={setReps} />
-            <Stepper label="セット" value={sets} min={1} step={1} onChange={setSets} />
-          </div>
-        </>
+        <div className="mt-3.5">
+          <SetRowsEditor rows={setRows} onAdd={addSetRow} onRemove={removeSetRow} onChange={updateSetRow} />
+        </div>
       ) : (
-        <div className="mt-3.5 grid grid-cols-3 gap-2">
+        <div className="mt-3.5">
           <Stepper label="時間 (分)" value={durationMinutes} min={1} step={5} onChange={setDurationMinutes} />
-          <Stepper label="距離 (km)" value={distanceKm} min={0} step={0.5} onChange={setDistanceKm} />
-          <Stepper label="kcal" value={calories} min={0} step={25} onChange={setCalories} />
         </div>
       )}
 
@@ -216,27 +274,25 @@ export function RecordForm({
         {exercises.map((exercise, index) => {
           const isCardio = exercise.exercise_type === "cardio";
           const muscle = muscleGroups.find((group) => group.id === exercise.muscle_group_id);
-          const tool = equipment.find((item) => item.id === exercise.equipment_id);
-          const subNames = exercise.muscle_sub_group_ids
-            .map((id) => muscle?.muscle_sub_groups?.find((group) => group.id === id)?.name)
-            .filter(Boolean);
           return (
             <Card key={`${exercise.exercise_name}-${index}`} className="mb-2.5 flex items-center gap-3">
               <div className="h-9 w-1 shrink-0 rounded-full" style={{ backgroundColor: muscle?.color ?? "#D4FF00" }} />
               <div className="flex-1">
                 <p className="text-[13px] font-medium">{exercise.exercise_name}</p>
                 {isCardio ? (
-                  <p className="text-[11px] text-macho-muted">
-                    {exercise.duration_minutes}分 ・ {exercise.distance_km}km ・ {exercise.calories}kcal
-                  </p>
+                  <p className="text-[11px] text-macho-muted">{exercise.duration_minutes}分</p>
                 ) : (
-                  <p className="text-[11px] text-macho-muted">
-                    {tool?.name ?? "器具なし"} ・ {exercise.weight_kg}kg x {exercise.reps}回 x {exercise.sets}set
-                  </p>
+                  <p className="text-[11px] text-macho-muted">{formatSetsSummary(exercise.workout_sets)}</p>
                 )}
-                {subNames.length > 0 && <p className="mt-0.5 text-[11px] text-macho-muted">{subNames.join(" / ")}</p>}
               </div>
-              <Check size={18} className="text-macho-lime" />
+              <button
+                type="button"
+                onClick={() => setExercises((current) => current.filter((_, i) => i !== index))}
+                className="text-macho-muted transition hover:text-[#FF6B6B]"
+                aria-label="削除"
+              >
+                <X size={16} />
+              </button>
             </Card>
           );
         })}
@@ -256,21 +312,33 @@ export function RecordForm({
   );
 }
 
+function suggestionSubtitle(entry: ExerciseHistoryEntry) {
+  if (entry.exercise_type === "cardio") {
+    return entry.last_duration_minutes ? `前回: ${entry.last_duration_minutes}分` : "前回の記録なし";
+  }
+  if (entry.last_sets.length === 0) return "前回の記録なし";
+  return `前回: ${formatSetsSummary(entry.last_sets)}`;
+}
+
 function templateExercisesToPayload(initialExercises?: WorkoutTemplate["template_exercises"]): NewExercisePayload[] {
   return (initialExercises ?? []).map((exercise) => {
     const isStrength = Boolean(exercise.muscle_group_id);
+    const weight = Number(exercise.target_weight_kg ?? 0);
+    const reps = exercise.target_reps ?? 0;
+    const sets = isStrength ? exercise.target_sets ?? 1 : 0;
     return {
       exercise_type: isStrength ? "strength" : "cardio",
       exercise_name: exercise.exercise_name,
       muscle_group_id: exercise.muscle_group_id,
-      muscle_sub_group_ids: exercise.muscle_sub_group_id ? [exercise.muscle_sub_group_id] : [],
-      equipment_id: exercise.equipment_id,
-      weight_kg: Number(exercise.target_weight_kg ?? 0),
-      reps: exercise.target_reps ?? 0,
-      sets: isStrength ? exercise.target_sets ?? 1 : 0,
+      muscle_sub_group_ids: [],
+      equipment_id: null,
+      weight_kg: weight,
+      reps,
+      sets,
+      workout_sets: isStrength ? Array.from({ length: sets }, () => ({ weight_kg: weight, reps })) : undefined,
       duration_minutes: isStrength ? null : 30,
-      distance_km: isStrength ? null : 0,
-      calories: isStrength ? null : 0,
+      distance_km: null,
+      calories: null,
     };
   });
 }
@@ -332,7 +400,7 @@ function Stepper({
         <button
           type="button"
           onClick={() => onChange(Math.max(min, value - step))}
-          className="flex h-7 w-7 items-center justify-center rounded-full border border-macho-border bg-macho-surface text-macho-muted hover:text-macho-text"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-macho-border bg-macho-surface text-macho-muted hover:text-macho-text"
         >
           <Minus size={14} />
         </button>
@@ -349,7 +417,7 @@ function Stepper({
         <button
           type="button"
           onClick={() => onChange(value + step)}
-          className="flex h-7 w-7 items-center justify-center rounded-full border border-macho-border bg-macho-surface text-macho-muted hover:text-macho-text"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-macho-border bg-macho-surface text-macho-muted hover:text-macho-text"
         >
           <Plus size={14} />
         </button>

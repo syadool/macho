@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Check, Crown, Loader2 } from "lucide-react";
 import { Card, OutlineButton, PrimaryButton } from "@/components/ui";
 import type { BillingPlan } from "@/lib/billing/plans";
@@ -110,18 +109,10 @@ export function PricingClient({
                   {plan.priceLabel}
                   <span className="ml-1 font-sans text-xs normal-case tracking-normal text-macho-muted">/月</span>
                 </p>
-                <p className="mt-1 text-xs text-macho-muted">1回あたり {plan.unitPriceLabel}</p>
-              </div>
-              <div className="text-right">
-                <p className={`text-lg font-semibold ${plan.recommended ? "text-macho-lime" : "text-macho-text"}`}>
-                  {plan.monthlyAiLimit}回
-                </p>
-                <p className="text-[11px] text-macho-muted">AI提案/月</p>
               </div>
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] text-macho-muted">
-              <PlanPoint label={`日次 ${plan.dailyAiLimit}回`} />
               <PlanPoint label="日本円決済" />
             </div>
 
@@ -139,9 +130,7 @@ export function PricingClient({
               ) : isPaid ? (
                 <OutlineButton disabled>準備中</OutlineButton>
               ) : (
-                <Link href="/suggest">
-                  <OutlineButton>AI提案へ</OutlineButton>
-                </Link>
+                <OutlineButton disabled>現在のプラン</OutlineButton>
               )}
             </div>
           </Card>

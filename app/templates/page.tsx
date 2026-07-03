@@ -57,7 +57,7 @@ export default async function TemplatesPage({
         {templates.length === 0 && (
           <Card className="text-center">
             <p className="text-sm font-medium">テンプレートがありません</p>
-            <p className="mt-1 text-xs text-macho-muted">AI提案を保存するとここに並びます。</p>
+            <p className="mt-1 text-xs text-macho-muted">記録画面から今日のメニューをテンプレートとして保存できます。</p>
           </Card>
         )}
       </section>
