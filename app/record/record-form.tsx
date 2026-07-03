@@ -96,6 +96,42 @@ export function RecordForm({
     setSetRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
+  function buildPendingExercise(): NewExercisePayload | null {
+    if (!exerciseName.trim()) return null;
+    if (exerciseType === "strength" && !selectedMuscle) return null;
+
+    if (exerciseType === "strength") {
+      return {
+        exercise_type: "strength",
+        exercise_name: exerciseName.trim(),
+        muscle_group_id: selectedMuscle?.id ?? null,
+        muscle_sub_group_ids: [],
+        equipment_id: null,
+        weight_kg: setRows[0]?.weight_kg ?? 0,
+        reps: setRows[0]?.reps ?? 0,
+        sets: setRows.length,
+        workout_sets: setRows.map((row) => ({ weight_kg: row.weight_kg, reps: row.reps })),
+        duration_minutes: null,
+        distance_km: null,
+        calories: null,
+      };
+    }
+
+    return {
+      exercise_type: "cardio",
+      exercise_name: exerciseName.trim(),
+      muscle_group_id: null,
+      muscle_sub_group_ids: [],
+      equipment_id: null,
+      weight_kg: 0,
+      reps: 0,
+      sets: 0,
+      duration_minutes: durationMinutes,
+      distance_km: null,
+      calories: null,
+    };
+  }
+
   function addExercise() {
     if (!exerciseName.trim()) {
       setMessage("エクササイズ名を入力してください。");
@@ -107,51 +143,25 @@ export function RecordForm({
       return;
     }
 
-    if (exerciseType === "strength") {
-      setExercises((current) => [
-        ...current,
-        {
-          exercise_type: "strength",
-          exercise_name: exerciseName.trim(),
-          muscle_group_id: selectedMuscle?.id ?? null,
-          muscle_sub_group_ids: [],
-          equipment_id: null,
-          weight_kg: setRows[0]?.weight_kg ?? 0,
-          reps: setRows[0]?.reps ?? 0,
-          sets: setRows.length,
-          workout_sets: setRows.map((row) => ({ weight_kg: row.weight_kg, reps: row.reps })),
-          duration_minutes: null,
-          distance_km: null,
-          calories: null,
-        },
-      ]);
-      setSetRows([{ ...DEFAULT_SET_ROW }]);
-    } else {
-      setExercises((current) => [
-        ...current,
-        {
-          exercise_type: "cardio",
-          exercise_name: exerciseName.trim(),
-          muscle_group_id: null,
-          muscle_sub_group_ids: [],
-          equipment_id: null,
-          weight_kg: 0,
-          reps: 0,
-          sets: 0,
-          duration_minutes: durationMinutes,
-          distance_km: null,
-          calories: null,
-        },
-      ]);
-    }
+    const pending = buildPendingExercise();
+    if (!pending) return;
 
+    setExercises((current) => [...current, pending]);
+    if (exerciseType === "strength") setSetRows([{ ...DEFAULT_SET_ROW }]);
     setMessage("");
     setExerciseName("");
   }
 
   function submitWorkout() {
+    const pending = buildPendingExercise();
+    const exercisesToSave = pending ? [...exercises, pending] : exercises;
+    if (exercisesToSave.length === 0) {
+      setMessage("エクササイズを追加してください。");
+      return;
+    }
+
     startTransition(async () => {
-      const result = await saveWorkout(workoutDate, exercises);
+      const result = await saveWorkout(workoutDate, exercisesToSave);
       if (result.ok) {
         router.push("/dashboard");
         router.refresh();
@@ -305,7 +315,7 @@ export function RecordForm({
         <Plus size={14} className="mr-1 inline align-[-2px]" />
         エクササイズを追加
       </OutlineButton>
-      <PrimaryButton onClick={submitWorkout} disabled={isPending || exercises.length === 0}>
+      <PrimaryButton onClick={submitWorkout} disabled={isPending || (exercises.length === 0 && !exerciseName.trim())}>
         <Check size={16} className="mr-1 inline align-[-3px]" />
         {isPending ? "保存中..." : "ワークアウトを保存"}
       </PrimaryButton>

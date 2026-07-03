@@ -5,12 +5,22 @@ export function getConfiguredAppUrl() {
 }
 
 export function getPublicAppUrlForRequest(req: Request) {
-  const configured = getConfiguredAppUrl();
-  if (configured) return configured;
+  return resolvePublicAppUrl(new URL(req.url).origin);
+}
 
-  const origin = new URL(req.url).origin;
-  const hostname = new URL(origin).hostname;
-  return LOCAL_HOSTS.has(hostname) ? origin : null;
+export function resolvePublicAppUrl(requestOrigin: string) {
+  const requestIsLocal = LOCAL_HOSTS.has(new URL(requestOrigin).hostname);
+
+  const configured = getConfiguredAppUrl();
+  if (configured) {
+    const configuredIsLocal = LOCAL_HOSTS.has(new URL(configured).hostname);
+    // Ignore a localhost value left over from .env.local when the actual
+    // request isn't local (e.g. NEXT_PUBLIC_APP_URL mistakenly copied into
+    // production env vars) instead of exposing a broken localhost URL.
+    if (!configuredIsLocal || requestIsLocal) return configured;
+  }
+
+  return requestIsLocal ? requestOrigin : null;
 }
 
 function normalizeUrl(value: string | undefined) {

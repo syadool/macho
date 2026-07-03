@@ -40,7 +40,7 @@ export default async function HistoryPage({
         </PageTitle>
       </section>
 
-      <div className="mt-3.5 flex gap-1.5 overflow-x-auto pb-0.5">
+      <div className="mt-3.5 flex flex-wrap gap-1.5">
         <Link href="/history" className="shrink-0">
           <Pill active={!muscle || muscle === "all"}>全て</Pill>
         </Link>

@@ -1,11 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Activity, Check, Dumbbell, Minus, Plus, Trash2 } from "lucide-react";
 import { Card, OutlineButton, PrimaryButton } from "@/components/ui";
 import { SetRowsEditor } from "@/components/workout-sets";
-import type { ExerciseType, MuscleGroup, NewExercisePayload, NewWorkoutSetPayload, Workout } from "@/lib/types";
+import type {
+  ExerciseHistoryEntry,
+  ExerciseType,
+  MuscleGroup,
+  NewExercisePayload,
+  NewWorkoutSetPayload,
+  Workout,
+} from "@/lib/types";
 import { shortMuscleName } from "@/lib/constants";
 import { updateWorkout } from "../../actions";
 
@@ -18,15 +25,19 @@ type LocalExercise = NewExercisePayload & {
 export function EditWorkoutForm({
   workout,
   muscleGroups,
+  exerciseHistory,
   maxDate,
 }: {
   workout: Workout;
   muscleGroups: MuscleGroup[];
   equipment: unknown[];
+  exerciseHistory: ExerciseHistoryEntry[];
   maxDate: string;
 }) {
   const router = useRouter();
   const [date, setDate] = useState(workout.date);
+  const [openSuggestionsIndex, setOpenSuggestionsIndex] = useState<number | null>(null);
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [exercises, setExercises] = useState<LocalExercise[]>(() =>
     workout.workout_exercises.map((exercise) => {
       const workoutSets = exercise.workout_sets.map((set) => ({
@@ -55,6 +66,42 @@ export function EditWorkoutForm({
 
   function patchExercise(index: number, patch: Partial<NewExercisePayload>) {
     setExercises((current) => current.map((exercise, itemIndex) => (itemIndex === index ? { ...exercise, ...patch } : exercise)));
+  }
+
+  function suggestionsFor(exercise: LocalExercise) {
+    const query = exercise.exercise_name.trim().toLowerCase();
+    const candidates = exerciseHistory.filter((entry) => entry.exercise_type === exercise.exercise_type);
+    if (!query) return candidates.slice(0, 20);
+    return candidates.filter((entry) => entry.exercise_name.toLowerCase().includes(query)).slice(0, 20);
+  }
+
+  function applySuggestion(index: number, entry: ExerciseHistoryEntry) {
+    if (entry.exercise_type === "strength") {
+      const sets = entry.last_sets.length > 0 ? entry.last_sets.map((set) => ({ ...set })) : [{ ...DEFAULT_SET_ROW }];
+      patchExercise(index, {
+        exercise_name: entry.exercise_name,
+        muscle_group_id: entry.muscle_group_id ?? muscleGroups[0]?.id ?? null,
+        sets: sets.length,
+        workout_sets: sets,
+        weight_kg: sets[0]?.weight_kg ?? 0,
+        reps: sets[0]?.reps ?? 0,
+      });
+    } else {
+      patchExercise(index, {
+        exercise_name: entry.exercise_name,
+        duration_minutes: entry.last_duration_minutes ?? 30,
+      });
+    }
+    setOpenSuggestionsIndex(null);
+  }
+
+  function handleNameFocus(index: number) {
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    setOpenSuggestionsIndex(index);
+  }
+
+  function handleNameBlur() {
+    blurTimeoutRef.current = setTimeout(() => setOpenSuggestionsIndex(null), 120);
   }
 
   function setExerciseType(index: number, type: ExerciseType) {
@@ -194,14 +241,35 @@ export function EditWorkoutForm({
                 </button>
               </div>
 
-              <label className="block">
-                <span className="mb-1.5 block text-[11px] text-macho-muted">{isCardio ? "有酸素種目" : "エクササイズ名"}</span>
-                <input
-                  value={exercise.exercise_name}
-                  onChange={(event) => patchExercise(index, { exercise_name: event.target.value })}
-                  className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-sm text-macho-text outline-none transition focus:border-macho-lime"
-                />
-              </label>
+              <div className="relative">
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] text-macho-muted">{isCardio ? "有酸素種目" : "エクササイズ名"}</span>
+                  <input
+                    value={exercise.exercise_name}
+                    onChange={(event) => patchExercise(index, { exercise_name: event.target.value })}
+                    onFocus={() => handleNameFocus(index)}
+                    onBlur={handleNameBlur}
+                    autoComplete="off"
+                    className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-sm text-macho-text outline-none transition focus:border-macho-lime"
+                  />
+                </label>
+                {openSuggestionsIndex === index && suggestionsFor(exercise).length > 0 && (
+                  <ul className="absolute left-0 right-0 top-[calc(100%-4px)] z-20 max-h-64 overflow-y-auto rounded-[12px] border border-macho-border bg-macho-surface shadow-lg">
+                    {suggestionsFor(exercise).map((entry) => (
+                      <li key={entry.exercise_name}>
+                        <button
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => applySuggestion(index, entry)}
+                          className="flex w-full flex-col items-start gap-0.5 border-b border-macho-border/60 px-3.5 py-2.5 text-left last:border-b-0 hover:bg-macho-card"
+                        >
+                          <span className="text-sm text-macho-text">{entry.exercise_name}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
               {isCardio ? (
                 <Stepper

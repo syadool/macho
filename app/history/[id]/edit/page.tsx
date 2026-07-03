@@ -6,6 +6,7 @@ import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData, getWorkoutById } from "@/lib/data";
 import { toJstDateInputValue } from "@/lib/date";
 import { requireOnboardedUser } from "@/lib/supabase/server";
+import { getExerciseHistory } from "@/lib/workouts";
 import { EditWorkoutForm } from "./edit-workout-form";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,11 @@ export default async function EditWorkoutPage({
 }) {
   await requireOnboardedUser();
   const { id } = await params;
-  const [masterData, workout] = await Promise.all([getMasterData(), getWorkoutById(id)]);
+  const [masterData, workout, exerciseHistory] = await Promise.all([
+    getMasterData(),
+    getWorkoutById(id),
+    getExerciseHistory(),
+  ]);
 
   if (!workout) notFound();
 
@@ -37,6 +42,7 @@ export default async function EditWorkoutPage({
         workout={workout}
         muscleGroups={masterData.muscleGroups}
         equipment={masterData.equipment}
+        exerciseHistory={exerciseHistory}
         maxDate={toJstDateInputValue()}
       />
     </PhoneShell>
