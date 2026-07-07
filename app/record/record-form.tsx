@@ -192,7 +192,7 @@ export function RecordForm({
           value={workoutDate}
           max={initialDate}
           onChange={(event) => setWorkoutDate(event.target.value)}
-          className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-sm text-macho-text outline-none transition focus:border-macho-lime"
+          className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-base text-macho-text outline-none transition focus:border-macho-lime"
         />
       </Card>
 
@@ -223,7 +223,7 @@ export function RecordForm({
                   key={group.id}
                   type="button"
                   onClick={() => chooseMuscle(group.id)}
-                  className={`rounded-[14px] border p-3.5 text-center transition ${
+                  className={`rounded-[14px] border p-3.5 text-center transition active:scale-[0.97] ${
                     active ? "border-macho-lime bg-macho-lime/5" : "border-macho-border bg-macho-card hover:border-[#555]"
                   }`}
                 >
@@ -250,7 +250,7 @@ export function RecordForm({
           onBlur={handleNameBlur}
           placeholder={exerciseType === "strength" ? "ベンチプレス" : "ランニング"}
           autoComplete="off"
-          className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-sm text-macho-text outline-none transition placeholder:text-macho-muted focus:border-macho-lime"
+          className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-base text-macho-text outline-none transition placeholder:text-macho-muted focus:border-macho-lime"
         />
         {showSuggestions && filteredSuggestions.length > 0 && (
           <ul className="absolute left-4 right-4 top-[calc(100%-4px)] z-20 max-h-64 overflow-y-auto rounded-[12px] border border-macho-border bg-macho-surface shadow-lg">
@@ -369,7 +369,7 @@ function ModeButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-12 items-center justify-center gap-2 rounded-[14px] border text-sm font-medium transition ${
+      className={`flex h-12 items-center justify-center gap-2 rounded-[14px] border text-sm font-medium transition active:scale-[0.97] ${
         active
           ? "border-macho-lime bg-macho-lime/10 text-macho-lime"
           : "border-macho-border bg-macho-card text-macho-muted hover:text-macho-text"

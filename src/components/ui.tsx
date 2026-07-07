@@ -22,10 +22,10 @@ export function Pill({
   return (
     <button
       type="button"
-      className={`rounded-full border px-3.5 py-[7px] text-[13px] font-medium transition ${
+      className={`rounded-full border px-3.5 py-[7px] text-[13px] font-medium transition active:scale-[0.96] ${
         active
           ? "border-macho-lime bg-macho-lime/10 text-macho-lime"
-          : "border-macho-border bg-macho-surface text-macho-muted hover:border-[#555] hover:text-macho-text"
+          : "border-macho-border bg-macho-surface text-macho-muted hover:border-[#555] hover:text-macho-text active:bg-macho-card"
       } ${className}`}
       {...props}
     >
@@ -40,11 +40,11 @@ export function BottomNav({ active }: { active: "dashboard" | "record" | "histor
       <NavItem href="/dashboard" label="ホーム" active={active === "dashboard"} icon={<Home size={20} />} />
       <Link
         href="/record"
-        className={`flex flex-col items-center gap-1 px-4 py-1.5 text-[11px] transition ${
+        className={`group flex flex-col items-center gap-1 px-4 py-1.5 text-[11px] transition ${
           active === "record" ? "text-macho-lime" : "text-macho-muted hover:text-macho-text"
         }`}
       >
-        <span className="-mt-5 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-macho-lime text-macho-black shadow-[0_0_24px_rgba(212,255,0,0.2)]">
+        <span className="-mt-5 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-macho-lime text-macho-black shadow-[0_0_24px_rgba(212,255,0,0.2)] transition group-active:scale-95">
           <Plus size={24} strokeWidth={2.4} />
         </span>
         <span>記録</span>
@@ -68,7 +68,7 @@ function NavItem({
   return (
     <Link
       href={href}
-      className={`flex flex-col items-center gap-1 px-4 py-1.5 text-[11px] transition ${
+      className={`flex flex-col items-center gap-1 px-4 py-1.5 text-[11px] transition active:scale-95 ${
         active ? "text-macho-lime" : "text-macho-muted hover:text-macho-text"
       }`}
     >
@@ -89,7 +89,7 @@ export function PrimaryButton({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className={`w-full rounded-[14px] bg-macho-lime p-[15px] text-[15px] font-semibold text-macho-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`w-full rounded-[14px] bg-macho-lime p-[15px] text-[15px] font-semibold text-macho-black transition hover:opacity-90 active:scale-[0.98] active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...props}
     >
       {children}
@@ -104,7 +104,7 @@ export function OutlineButton({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className={`w-full rounded-[14px] border border-macho-lime bg-transparent p-[13px] text-sm font-medium text-macho-lime transition hover:bg-macho-lime/10 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`w-full rounded-[14px] border border-macho-lime bg-transparent p-[13px] text-sm font-medium text-macho-lime transition hover:bg-macho-lime/10 active:scale-[0.98] active:bg-macho-lime/15 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...props}
     >
       {children}

@@ -3,6 +3,11 @@
 :root {
   --background: #0a0a0b;
   --foreground: #f0f0f0;
+  color-scheme: dark;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
 }
 
 @theme inline {
@@ -31,6 +36,11 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+button,
+a {
+  touch-action: manipulation;
 }
 
 button {

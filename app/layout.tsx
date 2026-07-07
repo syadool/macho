@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Outfit } from "next/font/google";
 import "./globals.css";
 
@@ -17,6 +17,13 @@ const bebas = Bebas_Neue({
 export const metadata: Metadata = {
   title: "MACHO",
   description: "筋トレ記録Webアプリ",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0a0a0b",
 };
 
 export default function RootLayout({

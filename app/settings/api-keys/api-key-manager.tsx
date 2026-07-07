@@ -65,7 +65,7 @@ export function ApiKeyManager({ apiKeys }: { apiKeys: ApiKeySummary[] }) {
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className="mt-1 w-full rounded-[12px] border border-macho-border bg-macho-surface px-3 py-3 text-sm outline-none transition focus:border-macho-lime"
+            className="mt-1 w-full rounded-[12px] border border-macho-border bg-macho-surface px-3 py-3 text-base outline-none transition focus:border-macho-lime"
             maxLength={40}
           />
         </label>
