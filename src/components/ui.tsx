@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { Calendar, Home, Plus } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { transitionFor } from "@/lib/motion";
 
 export function Card({
   children,
@@ -8,7 +12,7 @@ export function Card({
   children: React.ReactNode;
   className?: string;
 }>) {
-  return <div className={`rounded-[14px] border border-macho-border bg-macho-card p-4 ${className}`}>{children}</div>;
+  return <div className={`macho-card rounded-macho-m border border-macho-border bg-macho-card p-4 ${className}`}>{children}</div>;
 }
 
 export function Pill({
@@ -16,13 +20,14 @@ export function Pill({
   active = false,
   className = "",
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+}: Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onDrag" | "onDragEnd" | "onDragStart" | "onAnimationStart" | "onAnimationEnd" | "onAnimationIteration"> & {
   active?: boolean;
 }) {
   return (
-    <button
+    <motion.button
       type="button"
-      className={`rounded-full border px-3.5 py-[7px] text-[13px] font-medium transition active:scale-[0.96] ${
+      whileTap={{ scale: 0.97 }}
+      className={`rounded-full border px-3.5 py-[7px] text-caption font-medium transition ${
         active
           ? "border-macho-lime bg-macho-lime/10 text-macho-lime"
           : "border-macho-border bg-macho-surface text-macho-muted hover:border-[#555] hover:text-macho-text active:bg-macho-card"
@@ -30,26 +35,27 @@ export function Pill({
       {...props}
     >
       {children}
-    </button>
+    </motion.button>
   );
 }
 
 export function BottomNav({ active }: { active: "dashboard" | "record" | "history" }) {
+  const reduced = useReducedMotion();
   return (
-    <nav className="relative z-10 flex shrink-0 items-center justify-around border-t border-macho-border bg-macho-base pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-2">
-      <NavItem href="/dashboard" label="ホーム" active={active === "dashboard"} icon={<Home size={20} />} />
+    <nav className="bottom-nav flex h-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))] items-center justify-around border-t pb-[env(safe-area-inset-bottom)] pt-2">
+      <NavItem href="/dashboard" label="ダッシュボード" active={active === "dashboard"} icon={<Home size={20} />} reduced={Boolean(reduced)} />
       <Link
         href="/record"
-        className={`group flex flex-col items-center gap-1 px-4 py-1.5 text-[11px] transition ${
+        className={`group flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 px-4 py-1.5 text-label transition ${
           active === "record" ? "text-macho-lime" : "text-macho-muted hover:text-macho-text"
         }`}
       >
-        <span className="-mt-5 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-macho-lime text-macho-black shadow-[0_0_24px_rgba(212,255,0,0.2)] transition group-active:scale-95">
+        <motion.span whileTap={{ scale: 0.97 }} className="-mt-5 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-macho-lime text-macho-black shadow-[0_0_24px_rgba(212,255,0,0.2)]">
           <Plus size={24} strokeWidth={2.4} />
-        </span>
+        </motion.span>
         <span>記録</span>
       </Link>
-      <NavItem href="/history" label="履歴" active={active === "history"} icon={<Calendar size={20} />} />
+      <NavItem href="/history" label="履歴" active={active === "history"} icon={<Calendar size={20} />} reduced={Boolean(reduced)} />
     </nav>
   );
 }
@@ -59,27 +65,29 @@ function NavItem({
   label,
   active,
   icon,
+  reduced,
 }: {
   href: string;
   label: string;
   active: boolean;
   icon: React.ReactNode;
+  reduced: boolean;
 }) {
   return (
     <Link
       href={href}
-      className={`flex flex-col items-center gap-1 px-4 py-1.5 text-[11px] transition active:scale-95 ${
+      className={`flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 px-4 py-1.5 text-label transition ${
         active ? "text-macho-lime" : "text-macho-muted hover:text-macho-text"
       }`}
     >
-      {icon}
+      <motion.span animate={{ scale: active ? 1.08 : 1 }} transition={transitionFor(reduced)}>{icon}</motion.span>
       <span>{label}</span>
     </Link>
   );
 }
 
 export function PageTitle({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <h1 className="font-display text-[34px] leading-none tracking-[0.04em]">{children}</h1>;
+  return <h1 className="font-display text-display-xl">{children}</h1>;
 }
 
 export function PrimaryButton({
@@ -89,7 +97,7 @@ export function PrimaryButton({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className={`w-full rounded-[14px] bg-macho-lime p-[15px] text-[15px] font-semibold text-macho-black transition hover:opacity-90 active:scale-[0.98] active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`w-full rounded-macho-m bg-macho-lime p-[15px] text-body font-semibold text-macho-black transition hover:opacity-90 active:scale-[0.98] active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...props}
     >
       {children}
@@ -104,7 +112,7 @@ export function OutlineButton({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className={`w-full rounded-[14px] border border-macho-lime bg-transparent p-[13px] text-sm font-medium text-macho-lime transition hover:bg-macho-lime/10 active:scale-[0.98] active:bg-macho-lime/15 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`w-full rounded-macho-m border border-macho-lime bg-transparent p-[13px] text-body font-medium text-macho-lime transition hover:bg-macho-lime/10 active:scale-[0.98] active:bg-macho-lime/15 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...props}
     >
       {children}

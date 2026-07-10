@@ -3,6 +3,7 @@
 import { Minus, Plus, X } from "lucide-react";
 import { Card, OutlineButton } from "@/components/ui";
 import type { NewWorkoutSetPayload } from "@/lib/types";
+import { PressAndHoldStepperButton } from "@/components/stepper";
 
 export function SetRowsEditor({
   rows,
@@ -95,35 +96,16 @@ export function MiniStepper({
 
   return (
     <div className="flex items-center justify-center gap-1">
-      <button
-        type="button"
-        onClick={() => onChange(Math.max(min, value - step))}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-macho-border bg-macho-surface text-macho-muted hover:text-macho-text"
-        aria-label={`${label}を減らす`}
-      >
+      <PressAndHoldStepperButton onStep={() => onChange(Math.max(min, value - step))} ariaLabel={`${label}を減らす`}>
         <Minus size={14} />
-      </button>
+      </PressAndHoldStepperButton>
       <div className="flex min-w-0 flex-1 flex-col items-center">
-        <input
-          type="number"
-          inputMode="decimal"
-          min={min}
-          step={step}
-          value={value}
-          onChange={(event) => updateValue(event.target.value)}
-          className="w-full min-w-0 bg-transparent text-center font-display text-[20px] leading-none tracking-[0.04em] text-macho-lime outline-none"
-          aria-label={label}
-        />
+        <input type="number" inputMode="decimal" min={min} step={step} value={value} onChange={(event) => updateValue(event.target.value)} className="w-full min-w-0 bg-transparent text-center font-display text-display-num text-macho-lime outline-none" aria-label={label} />
         <span className="text-[10px] text-macho-muted">{label}</span>
       </div>
-      <button
-        type="button"
-        onClick={() => onChange(value + step)}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-macho-border bg-macho-surface text-macho-muted hover:text-macho-text"
-        aria-label={`${label}を増やす`}
-      >
+      <PressAndHoldStepperButton onStep={() => onChange(value + step)} ariaLabel={`${label}を増やす`}>
         <Plus size={14} />
-      </button>
+      </PressAndHoldStepperButton>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Activity, Check, Dumbbell, Minus, Plus, X } from "lucide-react";
 import { Card, OutlineButton, PrimaryButton } from "@/components/ui";
@@ -17,6 +17,10 @@ import type {
 } from "@/lib/types";
 import { shortMuscleName } from "@/lib/constants";
 import { saveWorkout } from "./actions";
+import { useToast } from "@/components/toast";
+import { PressAndHoldStepperButton } from "@/components/stepper";
+import { motion, useReducedMotion } from "motion/react";
+import { transitionFor } from "@/lib/motion";
 
 type SetRow = NewWorkoutSetPayload;
 
@@ -37,6 +41,8 @@ export function RecordForm({
   exerciseHistory: ExerciseHistoryEntry[];
 }) {
   const router = useRouter();
+  const { show, dismiss } = useToast();
+  const reduced = useReducedMotion();
   const [workoutDate, setWorkoutDate] = useState(initialDate);
   const [exerciseType, setExerciseType] = useState<ExerciseType>("strength");
   const [selectedMuscleId, setSelectedMuscleId] = useState(muscleGroups[0]?.id ?? "");
@@ -49,9 +55,9 @@ export function RecordForm({
   const [setRows, setSetRows] = useState<SetRow[]>([{ ...DEFAULT_SET_ROW }]);
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [exercises, setExercises] = useState<NewExercisePayload[]>(() => templateExercisesToPayload(initialExercises));
-  const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
-  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDeletionRef = useRef<{ token: string; toastId: string; expiresAt: number } | null>(null);
+  useEffect(() => () => { const pending = pendingDeletionRef.current; if (pending) { pendingDeletionRef.current = null; dismiss(pending.toastId); } }, [dismiss]);
 
   const filteredSuggestions = useMemo(() => {
     const query = exerciseName.trim().toLowerCase();
@@ -89,7 +95,13 @@ export function RecordForm({
   }
 
   function removeSetRow(index: number) {
-    setSetRows((current) => (current.length <= 1 ? current : current.filter((_, i) => i !== index)));
+    const item = setRows[index];
+    if (!item || setRows.length <= 1) return;
+    const token = crypto.randomUUID(); const expiresAt = Date.now() + 5000;
+    setSetRows((current) => current.filter((_, i) => i !== index));
+    const toastId = show({ kind: "undo", message: "セットを削除しました", onUndo: () => { const pending = pendingDeletionRef.current; if (pending?.token !== token || Date.now() >= pending.expiresAt) return; setSetRows((current) => { const next = [...current]; next.splice(Math.min(index, next.length), 0, item); return next; }); pendingDeletionRef.current = null; } });
+    const previous = pendingDeletionRef.current; if (previous) dismiss(previous.toastId);
+    pendingDeletionRef.current = { token, toastId, expiresAt };
   }
 
   function updateSetRow(index: number, patch: Partial<SetRow>) {
@@ -134,12 +146,12 @@ export function RecordForm({
 
   function addExercise() {
     if (!exerciseName.trim()) {
-      setMessage("エクササイズ名を入力してください。");
+      show({ kind: "error", message: "エクササイズ名を入力してください。" });
       return;
     }
 
     if (exerciseType === "strength" && !selectedMuscle) {
-      setMessage("部位を選択してください。");
+      show({ kind: "error", message: "部位を選択してください。" });
       return;
     }
 
@@ -148,7 +160,6 @@ export function RecordForm({
 
     setExercises((current) => [...current, pending]);
     if (exerciseType === "strength") setSetRows([{ ...DEFAULT_SET_ROW }]);
-    setMessage("");
     setExerciseName("");
   }
 
@@ -156,28 +167,33 @@ export function RecordForm({
     const pending = buildPendingExercise();
     const exercisesToSave = pending ? [...exercises, pending] : exercises;
     if (exercisesToSave.length === 0) {
-      setMessage("エクササイズを追加してください。");
+      show({ kind: "error", message: "エクササイズを追加してください。" });
       return;
     }
 
     startTransition(async () => {
       const result = await saveWorkout(workoutDate, exercisesToSave);
       if (result.ok) {
+        show({ kind: "success", message: "ワークアウトを保存しました" });
         router.push("/dashboard");
         router.refresh();
       } else {
-        setMessage(result.message ?? "保存に失敗しました。");
+        show({ kind: "error", message: result.message ?? "保存に失敗しました。" });
       }
     });
   }
 
-  function handleNameBlur() {
-    blurTimeoutRef.current = setTimeout(() => setShowSuggestions(false), 120);
+  function handleNameFocus() {
+    setShowSuggestions(true);
   }
 
-  function handleNameFocus() {
-    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-    setShowSuggestions(true);
+  function removeExercise(index: number) {
+    const item = exercises[index]; if (!item) return;
+    const token = crypto.randomUUID(); const expiresAt = Date.now() + 5000;
+    setExercises((current) => current.filter((_, i) => i !== index));
+    const toastId = show({ kind: "undo", message: "エクササイズを削除しました", onUndo: () => { const pending = pendingDeletionRef.current; if (pending?.token !== token || Date.now() >= pending.expiresAt) return; setExercises((current) => { const next = [...current]; next.splice(Math.min(index, next.length), 0, item); return next; }); pendingDeletionRef.current = null; } });
+    const previous = pendingDeletionRef.current; if (previous) dismiss(previous.toastId);
+    pendingDeletionRef.current = { token, toastId, expiresAt };
   }
 
   return (
@@ -219,11 +235,12 @@ export function RecordForm({
             {muscleGroups.map((group) => {
               const active = group.id === selectedMuscleId;
               return (
-                <button
+                <motion.button
                   key={group.id}
                   type="button"
                   onClick={() => chooseMuscle(group.id)}
-                  className={`rounded-[14px] border p-3.5 text-center transition active:scale-[0.97] ${
+                  whileTap={{ scale: 0.97 }}
+                  className={`rounded-macho-m border p-3.5 text-center transition ${
                     active ? "border-macho-lime bg-macho-lime/5" : "border-macho-border bg-macho-card hover:border-[#555]"
                   }`}
                 >
@@ -231,7 +248,7 @@ export function RecordForm({
                     {shortMuscleName(group.name)}
                   </span>
                   <span className={`text-[11px] ${active ? "text-macho-lime" : "text-macho-muted"}`}>{group.name_en}</span>
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -247,19 +264,18 @@ export function RecordForm({
           value={exerciseName}
           onChange={(event) => setExerciseName(event.target.value)}
           onFocus={handleNameFocus}
-          onBlur={handleNameBlur}
+          onBlur={(event) => { if (!event.currentTarget.parentElement?.contains(event.relatedTarget as Node | null)) setShowSuggestions(false); }}
           placeholder={exerciseType === "strength" ? "ベンチプレス" : "ランニング"}
           autoComplete="off"
           className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-base text-macho-text outline-none transition placeholder:text-macho-muted focus:border-macho-lime"
         />
         {showSuggestions && filteredSuggestions.length > 0 && (
-          <ul className="absolute left-4 right-4 top-[calc(100%-4px)] z-20 max-h-64 overflow-y-auto rounded-[12px] border border-macho-border bg-macho-surface shadow-lg">
+          <motion.ul initial={reduced ? { opacity: 0 } : { opacity: 0, scale: .96 }} animate={{ opacity: 1, scale: 1 }} transition={transitionFor(Boolean(reduced))} style={{ transformOrigin: "top" }} className="absolute left-4 right-4 top-[calc(100%-4px)] z-20 max-h-64 overflow-y-auto rounded-macho-s border border-macho-border bg-macho-surface shadow-lg">
             {filteredSuggestions.map((entry) => (
               <li key={entry.exercise_name}>
                 <button
                   type="button"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => applySuggestion(entry)}
+                  onPointerDown={(event) => { event.preventDefault(); applySuggestion(entry); }}
                   className="flex w-full flex-col items-start gap-0.5 border-b border-macho-border/60 px-3.5 py-2.5 text-left last:border-b-0 hover:bg-macho-card"
                 >
                   <span className="text-sm text-macho-text">{entry.exercise_name}</span>
@@ -267,7 +283,7 @@ export function RecordForm({
                 </button>
               </li>
             ))}
-          </ul>
+          </motion.ul>
         )}
       </Card>
 
@@ -298,8 +314,8 @@ export function RecordForm({
               </div>
               <button
                 type="button"
-                onClick={() => setExercises((current) => current.filter((_, i) => i !== index))}
-                className="text-macho-muted transition hover:text-[#FF6B6B]"
+                onClick={() => removeExercise(index)}
+                className="flex min-h-11 min-w-11 items-center justify-center text-macho-muted transition hover:text-macho-danger"
                 aria-label="削除"
               >
                 <X size={16} />
@@ -309,7 +325,6 @@ export function RecordForm({
         })}
       </div>
 
-      {message && <p className="mb-2 text-xs text-[#FF6B6B]">{message}</p>}
 
       <OutlineButton onClick={addExercise} className="mb-2.5">
         <Plus size={14} className="mr-1 inline align-[-2px]" />
@@ -366,10 +381,11 @@ function ModeButton({
   onClick: () => void;
 }) {
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onClick}
-      className={`flex h-12 items-center justify-center gap-2 rounded-[14px] border text-sm font-medium transition active:scale-[0.97] ${
+      whileTap={{ scale: 0.97 }}
+      className={`flex h-12 items-center justify-center gap-2 rounded-macho-m border text-sm font-medium transition ${
         active
           ? "border-macho-lime bg-macho-lime/10 text-macho-lime"
           : "border-macho-border bg-macho-card text-macho-muted hover:text-macho-text"
@@ -377,7 +393,7 @@ function ModeButton({
     >
       {icon}
       {children}
-    </button>
+    </motion.button>
   );
 }
 
@@ -408,13 +424,9 @@ function Stepper({
     <Card className="px-1.5 py-3 text-center">
       <p className="mb-1.5 text-[11px] text-macho-muted">{label}</p>
       <div className="flex items-center justify-center gap-2">
-        <button
-          type="button"
-          onClick={() => onChange(Math.max(min, value - step))}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-macho-border bg-macho-surface text-macho-muted hover:text-macho-text"
-        >
+        <PressAndHoldStepperButton onStep={() => onChange(Math.max(min, value - step))} ariaLabel={`${label}を減らす`}>
           <Minus size={14} />
-        </button>
+        </PressAndHoldStepperButton>
         <input
           type="number"
           inputMode="decimal"
@@ -425,13 +437,9 @@ function Stepper({
           className="min-w-0 flex-1 bg-transparent text-center font-display text-[26px] leading-none tracking-[0.04em] text-macho-lime outline-none"
           aria-label={label}
         />
-        <button
-          type="button"
-          onClick={() => onChange(value + step)}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-macho-border bg-macho-surface text-macho-muted hover:text-macho-text"
-        >
+        <PressAndHoldStepperButton onStep={() => onChange(value + step)} ariaLabel={`${label}を増やす`}>
           <Plus size={14} />
-        </button>
+        </PressAndHoldStepperButton>
       </div>
     </Card>
   );

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Outfit } from "next/font/google";
 import "./globals.css";
+import { ToastProvider } from "@/components/toast";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -34,7 +35,7 @@ export default function RootLayout({
   return (
     <html lang="ja" className={`${outfit.variable} ${bebas.variable}`}>
       <body className="bg-macho-black font-sans text-macho-text antialiased">
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );
