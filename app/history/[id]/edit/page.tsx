@@ -6,7 +6,7 @@ import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData, getWorkoutById } from "@/lib/data";
 import { toJstDateInputValue } from "@/lib/date";
 import { requireOnboardedUser } from "@/lib/supabase/server";
-import { getExerciseHistory } from "@/lib/workouts";
+import { getExerciseHistory } from "@/lib/exercise-history";
 import { EditWorkoutForm } from "./edit-workout-form";
 
 export const dynamic = "force-dynamic";
