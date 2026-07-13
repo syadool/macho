@@ -30,7 +30,7 @@ export function Pill({
       className={`rounded-full border px-3.5 py-[7px] text-caption font-medium transition ${
         active
           ? "border-macho-lime bg-macho-lime/10 text-macho-lime"
-          : "border-macho-border bg-macho-surface text-macho-muted hover:border-[#555] hover:text-macho-text active:bg-macho-card"
+          : "border-macho-border bg-macho-surface text-macho-muted hover:border-macho-border-hover hover:text-macho-text active:bg-macho-card"
       } ${className}`}
       {...props}
     >
@@ -42,7 +42,7 @@ export function Pill({
 export function BottomNav({ active }: { active: "dashboard" | "record" | "history" }) {
   const reduced = useReducedMotion();
   return (
-    <nav className="bottom-nav flex h-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))] items-center justify-around border-t pb-[env(safe-area-inset-bottom)] pt-2">
+    <nav className="bottom-nav grid h-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))] grid-cols-3 items-center justify-items-center border-t pb-[env(safe-area-inset-bottom)] pt-2">
       <NavItem href="/dashboard" label="ダッシュボード" active={active === "dashboard"} icon={<Home size={20} />} reduced={Boolean(reduced)} />
       <Link
         href="/record"

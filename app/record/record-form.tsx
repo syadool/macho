@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, Check, Dumbbell, Minus, Plus, X } from "lucide-react";
+import { Activity, Check, Dumbbell, Plus, X } from "lucide-react";
 import { Card, OutlineButton, PrimaryButton } from "@/components/ui";
 import { SetRowsEditor } from "@/components/workout-sets";
+import { DurationStepper, ExerciseSuggestionList, ModeButton, MuscleGroupGrid } from "@/components/workout-form";
 import { formatSetsSummary } from "@/lib/sets";
 import type {
   Equipment,
@@ -15,12 +16,8 @@ import type {
   NewWorkoutSetPayload,
   WorkoutTemplate,
 } from "@/lib/types";
-import { shortMuscleName } from "@/lib/constants";
 import { saveWorkout } from "./actions";
 import { useToast } from "@/components/toast";
-import { PressAndHoldStepperButton } from "@/components/stepper";
-import { motion, useReducedMotion } from "motion/react";
-import { transitionFor } from "@/lib/motion";
 
 type SetRow = NewWorkoutSetPayload;
 
@@ -42,7 +39,6 @@ export function RecordForm({
 }) {
   const router = useRouter();
   const { show, dismiss } = useToast();
-  const reduced = useReducedMotion();
   const [workoutDate, setWorkoutDate] = useState(initialDate);
   const [exerciseType, setExerciseType] = useState<ExerciseType>("strength");
   const [selectedMuscleId, setSelectedMuscleId] = useState(muscleGroups[0]?.id ?? "");
@@ -57,7 +53,33 @@ export function RecordForm({
   const [exercises, setExercises] = useState<NewExercisePayload[]>(() => templateExercisesToPayload(initialExercises));
   const [isPending, startTransition] = useTransition();
   const pendingDeletionRef = useRef<{ token: string; toastId: string; expiresAt: number } | null>(null);
-  useEffect(() => () => { const pending = pendingDeletionRef.current; if (pending) { pendingDeletionRef.current = null; dismiss(pending.toastId); } }, [dismiss]);
+  useEffect(() => {
+    return () => {
+      const pending = pendingDeletionRef.current;
+      if (pending) {
+        pendingDeletionRef.current = null;
+        dismiss(pending.toastId);
+      }
+    };
+  }, [dismiss]);
+
+  function scheduleUndo(message: string, restore: () => void) {
+    const token = crypto.randomUUID();
+    const expiresAt = Date.now() + 5000;
+    const toastId = show({
+      kind: "undo",
+      message,
+      onUndo: () => {
+        const pending = pendingDeletionRef.current;
+        if (pending?.token !== token || Date.now() >= pending.expiresAt) return;
+        restore();
+        pendingDeletionRef.current = null;
+      },
+    });
+    const previous = pendingDeletionRef.current;
+    if (previous) dismiss(previous.toastId);
+    pendingDeletionRef.current = { token, toastId, expiresAt };
+  }
 
   const filteredSuggestions = useMemo(() => {
     const query = exerciseName.trim().toLowerCase();
@@ -97,11 +119,14 @@ export function RecordForm({
   function removeSetRow(index: number) {
     const item = setRows[index];
     if (!item || setRows.length <= 1) return;
-    const token = crypto.randomUUID(); const expiresAt = Date.now() + 5000;
     setSetRows((current) => current.filter((_, i) => i !== index));
-    const toastId = show({ kind: "undo", message: "セットを削除しました", onUndo: () => { const pending = pendingDeletionRef.current; if (pending?.token !== token || Date.now() >= pending.expiresAt) return; setSetRows((current) => { const next = [...current]; next.splice(Math.min(index, next.length), 0, item); return next; }); pendingDeletionRef.current = null; } });
-    const previous = pendingDeletionRef.current; if (previous) dismiss(previous.toastId);
-    pendingDeletionRef.current = { token, toastId, expiresAt };
+    scheduleUndo("セットを削除しました", () => {
+      setSetRows((current) => {
+        const next = [...current];
+        next.splice(Math.min(index, next.length), 0, item);
+        return next;
+      });
+    });
   }
 
   function updateSetRow(index: number, patch: Partial<SetRow>) {
@@ -188,12 +213,16 @@ export function RecordForm({
   }
 
   function removeExercise(index: number) {
-    const item = exercises[index]; if (!item) return;
-    const token = crypto.randomUUID(); const expiresAt = Date.now() + 5000;
+    const item = exercises[index];
+    if (!item) return;
     setExercises((current) => current.filter((_, i) => i !== index));
-    const toastId = show({ kind: "undo", message: "エクササイズを削除しました", onUndo: () => { const pending = pendingDeletionRef.current; if (pending?.token !== token || Date.now() >= pending.expiresAt) return; setExercises((current) => { const next = [...current]; next.splice(Math.min(index, next.length), 0, item); return next; }); pendingDeletionRef.current = null; } });
-    const previous = pendingDeletionRef.current; if (previous) dismiss(previous.toastId);
-    pendingDeletionRef.current = { token, toastId, expiresAt };
+    scheduleUndo("エクササイズを削除しました", () => {
+      setExercises((current) => {
+        const next = [...current];
+        next.splice(Math.min(index, next.length), 0, item);
+        return next;
+      });
+    });
   }
 
   return (
@@ -231,27 +260,7 @@ export function RecordForm({
       {exerciseType === "strength" && (
         <>
           <p className="mb-2 mt-4 text-xs font-medium text-macho-muted">部位を選択</p>
-          <div className="grid grid-cols-3 gap-2">
-            {muscleGroups.map((group) => {
-              const active = group.id === selectedMuscleId;
-              return (
-                <motion.button
-                  key={group.id}
-                  type="button"
-                  onClick={() => chooseMuscle(group.id)}
-                  whileTap={{ scale: 0.97 }}
-                  className={`rounded-macho-m border p-3.5 text-center transition ${
-                    active ? "border-macho-lime bg-macho-lime/5" : "border-macho-border bg-macho-card hover:border-[#555]"
-                  }`}
-                >
-                  <span className="mb-1 block text-[22px] font-semibold" style={{ color: group.color }}>
-                    {shortMuscleName(group.name)}
-                  </span>
-                  <span className={`text-[11px] ${active ? "text-macho-lime" : "text-macho-muted"}`}>{group.name_en}</span>
-                </motion.button>
-              );
-            })}
-          </div>
+          <MuscleGroupGrid groups={muscleGroups} selectedId={selectedMuscleId} onSelect={chooseMuscle} />
         </>
       )}
 
@@ -270,20 +279,7 @@ export function RecordForm({
           className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-base text-macho-text outline-none transition placeholder:text-macho-muted focus:border-macho-lime"
         />
         {showSuggestions && filteredSuggestions.length > 0 && (
-          <motion.ul initial={reduced ? { opacity: 0 } : { opacity: 0, scale: .96 }} animate={{ opacity: 1, scale: 1 }} transition={transitionFor(Boolean(reduced))} style={{ transformOrigin: "top" }} className="absolute left-4 right-4 top-[calc(100%-4px)] z-20 max-h-64 overflow-y-auto rounded-macho-s border border-macho-border bg-macho-surface shadow-lg">
-            {filteredSuggestions.map((entry) => (
-              <li key={entry.exercise_name}>
-                <button
-                  type="button"
-                  onPointerDown={(event) => { event.preventDefault(); applySuggestion(entry); }}
-                  className="flex w-full flex-col items-start gap-0.5 border-b border-macho-border/60 px-3.5 py-2.5 text-left last:border-b-0 hover:bg-macho-card"
-                >
-                  <span className="text-sm text-macho-text">{entry.exercise_name}</span>
-                  <span className="text-[11px] text-macho-muted">{suggestionSubtitle(entry)}</span>
-                </button>
-              </li>
-            ))}
-          </motion.ul>
+          <ExerciseSuggestionList entries={filteredSuggestions} onSelect={applySuggestion} className="left-4 right-4" />
         )}
       </Card>
 
@@ -293,7 +289,7 @@ export function RecordForm({
         </div>
       ) : (
         <div className="mt-3.5">
-          <Stepper label="時間 (分)" value={durationMinutes} min={1} step={5} onChange={setDurationMinutes} />
+          <DurationStepper label="時間 (分)" value={durationMinutes} min={1} step={5} onChange={setDurationMinutes} />
         </div>
       )}
 
@@ -338,14 +334,6 @@ export function RecordForm({
   );
 }
 
-function suggestionSubtitle(entry: ExerciseHistoryEntry) {
-  if (entry.exercise_type === "cardio") {
-    return entry.last_duration_minutes ? `前回: ${entry.last_duration_minutes}分` : "前回の記録なし";
-  }
-  if (entry.last_sets.length === 0) return "前回の記録なし";
-  return `前回: ${formatSetsSummary(entry.last_sets)}`;
-}
-
 function templateExercisesToPayload(initialExercises?: WorkoutTemplate["template_exercises"]): NewExercisePayload[] {
   return (initialExercises ?? []).map((exercise) => {
     const isStrength = Boolean(exercise.muscle_group_id);
@@ -367,80 +355,4 @@ function templateExercisesToPayload(initialExercises?: WorkoutTemplate["template
       calories: null,
     };
   });
-}
-
-function ModeButton({
-  active,
-  icon,
-  children,
-  onClick,
-}: {
-  active: boolean;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      whileTap={{ scale: 0.97 }}
-      className={`flex h-12 items-center justify-center gap-2 rounded-macho-m border text-sm font-medium transition ${
-        active
-          ? "border-macho-lime bg-macho-lime/10 text-macho-lime"
-          : "border-macho-border bg-macho-card text-macho-muted hover:text-macho-text"
-      }`}
-    >
-      {icon}
-      {children}
-    </motion.button>
-  );
-}
-
-function Stepper({
-  label,
-  value,
-  min,
-  step,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  step: number;
-  onChange: (value: number) => void;
-}) {
-  function updateValue(rawValue: string) {
-    if (rawValue === "") {
-      onChange(min);
-      return;
-    }
-
-    const nextValue = Number(rawValue);
-    if (!Number.isNaN(nextValue)) onChange(Math.max(min, nextValue));
-  }
-
-  return (
-    <Card className="px-1.5 py-3 text-center">
-      <p className="mb-1.5 text-[11px] text-macho-muted">{label}</p>
-      <div className="flex items-center justify-center gap-2">
-        <PressAndHoldStepperButton onStep={() => onChange(Math.max(min, value - step))} ariaLabel={`${label}を減らす`}>
-          <Minus size={14} />
-        </PressAndHoldStepperButton>
-        <input
-          type="number"
-          inputMode="decimal"
-          min={min}
-          step={step}
-          value={value}
-          onChange={(event) => updateValue(event.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-center font-display text-[26px] leading-none tracking-[0.04em] text-macho-lime outline-none"
-          aria-label={label}
-        />
-        <PressAndHoldStepperButton onStep={() => onChange(value + step)} ariaLabel={`${label}を増やす`}>
-          <Plus size={14} />
-        </PressAndHoldStepperButton>
-      </div>
-    </Card>
-  );
 }

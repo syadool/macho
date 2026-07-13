@@ -72,7 +72,7 @@ function FilterLink({ href, active, children }: { href: string; active: boolean;
       className={`shrink-0 rounded-full border px-3.5 py-[7px] text-[13px] font-medium transition ${
         active
           ? "border-macho-lime bg-macho-lime/10 text-macho-lime"
-          : "border-macho-border bg-macho-surface text-macho-muted hover:border-[#555] hover:text-macho-text"
+          : "border-macho-border bg-macho-surface text-macho-muted hover:border-macho-border-hover hover:text-macho-text"
       }`}
     >
       {children}

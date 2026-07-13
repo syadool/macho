@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, Check, Dumbbell, Minus, Plus, Trash2 } from "lucide-react";
+import { Activity, Check, Dumbbell, Plus, Trash2 } from "lucide-react";
 import { Card, OutlineButton, PrimaryButton } from "@/components/ui";
 import { SetRowsEditor } from "@/components/workout-sets";
+import { DurationStepper, ExerciseSuggestionList, ModeButton, MuscleGroupGrid } from "@/components/workout-form";
 import type {
   ExerciseHistoryEntry,
   ExerciseType,
@@ -13,12 +14,8 @@ import type {
   NewWorkoutSetPayload,
   Workout,
 } from "@/lib/types";
-import { shortMuscleName } from "@/lib/constants";
 import { updateWorkout } from "../../actions";
 import { useToast } from "@/components/toast";
-import { PressAndHoldStepperButton } from "@/components/stepper";
-import { motion, useReducedMotion } from "motion/react";
-import { transitionFor } from "@/lib/motion";
 
 const DEFAULT_SET_ROW: NewWorkoutSetPayload = { weight_kg: 20, reps: 10 };
 
@@ -40,7 +37,6 @@ export function EditWorkoutForm({
 }) {
   const router = useRouter();
   const { show, dismiss } = useToast();
-  const reduced = useReducedMotion();
   const [date, setDate] = useState(workout.date);
   const [openSuggestionsIndex, setOpenSuggestionsIndex] = useState<number | null>(null);
   const pendingDeletionRef = useRef<{ token: string; toastId: string; expiresAt: number } | null>(null);
@@ -68,7 +64,33 @@ export function EditWorkoutForm({
     }),
   );
   const [isPending, startTransition] = useTransition();
-  useEffect(() => () => { const pending = pendingDeletionRef.current; if (pending) { pendingDeletionRef.current = null; dismiss(pending.toastId); } }, [dismiss]);
+  useEffect(() => {
+    return () => {
+      const pending = pendingDeletionRef.current;
+      if (pending) {
+        pendingDeletionRef.current = null;
+        dismiss(pending.toastId);
+      }
+    };
+  }, [dismiss]);
+
+  function scheduleUndo(message: string, restore: () => void) {
+    const token = crypto.randomUUID();
+    const expiresAt = Date.now() + 5000;
+    const toastId = show({
+      kind: "undo",
+      message,
+      onUndo: () => {
+        const pending = pendingDeletionRef.current;
+        if (pending?.token !== token || Date.now() >= pending.expiresAt) return;
+        restore();
+        pendingDeletionRef.current = null;
+      },
+    });
+    const previous = pendingDeletionRef.current;
+    if (previous) dismiss(previous.toastId);
+    pendingDeletionRef.current = { token, toastId, expiresAt };
+  }
 
   function patchExercise(index: number, patch: Partial<NewExercisePayload>) {
     setExercises((current) => current.map((exercise, itemIndex) => (itemIndex === index ? { ...exercise, ...patch } : exercise)));
@@ -142,12 +164,16 @@ export function EditWorkoutForm({
   }
 
   function removeExercise(index: number) {
-    const item = exercises[index]; if (!item) return;
-    const token = crypto.randomUUID(); const expiresAt = Date.now() + 5000;
+    const item = exercises[index];
+    if (!item) return;
     setExercises((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    const toastId = show({ kind: "undo", message: "エクササイズを削除しました", onUndo: () => { const pending = pendingDeletionRef.current; if (pending?.token !== token || Date.now() >= pending.expiresAt) return; setExercises((current) => { const next = [...current]; next.splice(Math.min(index, next.length), 0, item); return next; }); pendingDeletionRef.current = null; } });
-    const previous = pendingDeletionRef.current; if (previous) dismiss(previous.toastId);
-    pendingDeletionRef.current = { token, toastId, expiresAt };
+    scheduleUndo("エクササイズを削除しました", () => {
+      setExercises((current) => {
+        const next = [...current];
+        next.splice(Math.min(index, next.length), 0, item);
+        return next;
+      });
+    });
   }
 
   function addSetRow(index: number) {
@@ -167,8 +193,6 @@ export function EditWorkoutForm({
     const item = exercise ? getStrengthSets(exercise)[setIndex] : undefined;
     if (!exercise || !item || getStrengthSets(exercise).length <= 1) return;
 
-    const token = crypto.randomUUID();
-    const expiresAt = Date.now() + 5000;
     setExercises((current) =>
       current.map((exercise, itemIndex) => {
         if (itemIndex !== index) return exercise;
@@ -178,33 +202,22 @@ export function EditWorkoutForm({
       }),
     );
 
-    const toastId = show({
-      kind: "undo",
-      message: "セットを削除しました",
-      onUndo: () => {
-        const pending = pendingDeletionRef.current;
-        if (pending?.token !== token || Date.now() >= pending.expiresAt) return;
-
-        setExercises((current) =>
-          current.map((currentExercise, itemIndex) => {
-            if (itemIndex !== index) return currentExercise;
-            const nextSets = [...getStrengthSets(currentExercise)];
-            nextSets.splice(Math.min(setIndex, nextSets.length), 0, item);
-            return {
-              ...currentExercise,
-              sets: nextSets.length,
-              workout_sets: nextSets,
-              weight_kg: nextSets[0]?.weight_kg ?? currentExercise.weight_kg,
-              reps: nextSets[0]?.reps ?? currentExercise.reps,
-            };
-          }),
-        );
-        pendingDeletionRef.current = null;
-      },
+    scheduleUndo("セットを削除しました", () => {
+      setExercises((current) =>
+        current.map((currentExercise, itemIndex) => {
+          if (itemIndex !== index) return currentExercise;
+          const nextSets = [...getStrengthSets(currentExercise)];
+          nextSets.splice(Math.min(setIndex, nextSets.length), 0, item);
+          return {
+            ...currentExercise,
+            sets: nextSets.length,
+            workout_sets: nextSets,
+            weight_kg: nextSets[0]?.weight_kg ?? currentExercise.weight_kg,
+            reps: nextSets[0]?.reps ?? currentExercise.reps,
+          };
+        }),
+      );
     });
-    const previous = pendingDeletionRef.current;
-    if (previous) dismiss(previous.toastId);
-    pendingDeletionRef.current = { token, toastId, expiresAt };
   }
 
   function patchStrengthSet(index: number, setIndex: number, patch: Partial<NewWorkoutSetPayload>) {
@@ -262,11 +275,11 @@ export function EditWorkoutForm({
           return (
             <Card key={exercise.local_key} className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="grid flex-1 grid-cols-2 gap-1.5">
-                  <ModeButton active={!isCardio} icon={<Dumbbell size={15} />} onClick={() => setExerciseType(index, "strength")}>
+                <div className="grid flex-1 grid-cols-2 gap-2">
+                  <ModeButton active={!isCardio} icon={<Dumbbell size={16} />} onClick={() => setExerciseType(index, "strength")}>
                     筋トレ
                   </ModeButton>
-                  <ModeButton active={isCardio} icon={<Activity size={15} />} onClick={() => setExerciseType(index, "cardio")}>
+                  <ModeButton active={isCardio} icon={<Activity size={16} />} onClick={() => setExerciseType(index, "cardio")}>
                     有酸素
                   </ModeButton>
                 </div>
@@ -288,29 +301,22 @@ export function EditWorkoutForm({
                     onChange={(event) => patchExercise(index, { exercise_name: event.target.value })}
                     onFocus={() => handleNameFocus(index)}
                     onBlur={(event) => { if (!event.currentTarget.parentElement?.parentElement?.contains(event.relatedTarget as Node | null)) setOpenSuggestionsIndex(null); }}
+                    placeholder={isCardio ? "ランニング" : "ベンチプレス"}
                     autoComplete="off"
-                    className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-base text-macho-text outline-none transition focus:border-macho-lime"
+                    className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-base text-macho-text outline-none transition placeholder:text-macho-muted focus:border-macho-lime"
                   />
                 </label>
                 {openSuggestionsIndex === index && suggestionsFor(exercise).length > 0 && (
-                  <motion.ul initial={reduced ? { opacity: 0 } : { opacity: 0, scale: .96 }} animate={{ opacity: 1, scale: 1 }} transition={transitionFor(Boolean(reduced))} style={{ transformOrigin: "top" }} className="absolute left-0 right-0 top-[calc(100%-4px)] z-20 max-h-64 overflow-y-auto rounded-macho-s border border-macho-border bg-macho-surface shadow-lg">
-                    {suggestionsFor(exercise).map((entry) => (
-                      <li key={entry.exercise_name}>
-                        <button
-                          type="button"
-                          onPointerDown={(event) => { event.preventDefault(); applySuggestion(index, entry); }}
-                          className="flex w-full flex-col items-start gap-0.5 border-b border-macho-border/60 px-3.5 py-2.5 text-left last:border-b-0 hover:bg-macho-card"
-                        >
-                          <span className="text-sm text-macho-text">{entry.exercise_name}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </motion.ul>
+                  <ExerciseSuggestionList
+                    entries={suggestionsFor(exercise)}
+                    onSelect={(entry) => applySuggestion(index, entry)}
+                    className="left-0 right-0"
+                  />
                 )}
               </div>
 
               {isCardio ? (
-                <Stepper
+                <DurationStepper
                   label="時間 (分)"
                   value={exercise.duration_minutes ?? 0}
                   min={1}
@@ -319,26 +325,13 @@ export function EditWorkoutForm({
                 />
               ) : (
                 <>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {muscleGroups.map((group) => (
-                      <button
-                        key={group.id}
-                        type="button"
-                        onClick={() =>
-                          patchExercise(index, {
-                            muscle_group_id: group.id,
-                            muscle_sub_group_ids: [],
-                          })
-                        }
-                        className={`rounded-[12px] border px-2 py-2.5 text-xs font-medium transition ${
-                          group.id === exercise.muscle_group_id
-                            ? "border-macho-lime bg-macho-lime/10 text-macho-lime"
-                            : "border-macho-border bg-macho-surface text-macho-muted"
-                        }`}
-                      >
-                        {shortMuscleName(group.name)}
-                      </button>
-                    ))}
+                  <div>
+                    <p className="mb-2 text-xs font-medium text-macho-muted">部位を選択</p>
+                    <MuscleGroupGrid
+                      groups={muscleGroups}
+                      selectedId={exercise.muscle_group_id}
+                      onSelect={(id) => patchExercise(index, { muscle_group_id: id, muscle_sub_group_ids: [] })}
+                    />
                   </div>
 
                   <SetRowsEditor
@@ -377,79 +370,4 @@ export function EditWorkoutForm({
 function getStrengthSets(exercise: LocalExercise) {
   if (Array.isArray(exercise.workout_sets) && exercise.workout_sets.length > 0) return exercise.workout_sets;
   return [{ ...DEFAULT_SET_ROW }];
-}
-
-function ModeButton({
-  active,
-  icon,
-  children,
-  onClick,
-}: {
-  active: boolean;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex h-10 items-center justify-center gap-1.5 rounded-[12px] border text-xs font-medium transition ${
-        active
-          ? "border-macho-lime bg-macho-lime/10 text-macho-lime"
-          : "border-macho-border bg-macho-surface text-macho-muted hover:text-macho-text"
-      }`}
-    >
-      {icon}
-      {children}
-    </button>
-  );
-}
-
-function Stepper({
-  label,
-  value,
-  min,
-  step,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  step: number;
-  onChange: (value: number) => void;
-}) {
-  function updateValue(rawValue: string) {
-    if (rawValue === "") {
-      onChange(min);
-      return;
-    }
-
-    const nextValue = Number(rawValue);
-    if (!Number.isNaN(nextValue)) onChange(Math.max(min, nextValue));
-  }
-
-  return (
-    <div className="rounded-[12px] border border-macho-border bg-macho-surface px-1.5 py-3 text-center">
-      <p className="mb-1.5 text-[11px] text-macho-muted">{label}</p>
-      <div className="flex items-center justify-center gap-1.5">
-        <PressAndHoldStepperButton onStep={() => onChange(Math.max(min, value - step))} ariaLabel={`${label}を減らす`}>
-          <Minus size={14} />
-        </PressAndHoldStepperButton>
-        <input
-          type="number"
-          inputMode="decimal"
-          min={min}
-          step={step}
-          value={value}
-          onChange={(event) => updateValue(event.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-center font-display text-[24px] leading-none tracking-[0.04em] text-macho-lime outline-none"
-          aria-label={label}
-        />
-        <PressAndHoldStepperButton onStep={() => onChange(value + step)} ariaLabel={`${label}を増やす`}>
-          <Plus size={14} />
-        </PressAndHoldStepperButton>
-      </div>
-    </div>
-  );
 }

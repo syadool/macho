@@ -148,7 +148,7 @@ function ChoiceCard({
       type="button"
       onClick={onClick}
       className={`rounded-[14px] border p-4 text-left transition ${
-        active ? "border-macho-lime bg-macho-lime/10 text-macho-text" : "border-macho-border bg-macho-card text-macho-text hover:border-[#555]"
+        active ? "border-macho-lime bg-macho-lime/10 text-macho-text" : "border-macho-border bg-macho-card text-macho-text hover:border-macho-border-hover"
       }`}
     >
       {children}
