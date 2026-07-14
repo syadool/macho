@@ -263,7 +263,7 @@ export function EditWorkoutForm({
           value={date}
           max={maxDate}
           onChange={(event) => setDate(event.target.value)}
-          className="w-full rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-base text-macho-text outline-none transition focus:border-macho-lime"
+          className="w-full min-w-0 max-w-full appearance-none rounded-[10px] border border-macho-border bg-macho-surface px-3.5 py-3 text-base text-macho-text outline-none transition focus:border-macho-lime"
         />
       </Card>
 

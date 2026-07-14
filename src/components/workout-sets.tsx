@@ -50,12 +50,10 @@ function SetRowInput({
   removable: boolean;
 }) {
   return (
-    <Card className="flex items-center gap-2 p-2.5">
-      <span className="w-7 shrink-0 text-center text-[13px] font-semibold text-macho-muted">{index + 1}</span>
-      <div className="flex-1">
+    <Card className="grid grid-cols-[1.75rem_minmax(0,1fr)_2.75rem] items-center gap-2 p-2.5">
+      <span className="text-center text-[13px] font-semibold text-macho-muted">{index + 1}</span>
+      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
         <MiniStepper label="kg" value={row.weight_kg} min={0} step={2.5} onChange={(value) => onChange({ weight_kg: value })} />
-      </div>
-      <div className="flex-1">
         <MiniStepper label="回" value={row.reps} min={0} step={1} onChange={(value) => onChange({ reps: value })} />
       </div>
       <button
@@ -95,12 +93,12 @@ export function MiniStepper({
   }
 
   return (
-    <div className="flex items-center justify-center gap-1">
+    <div className="flex min-w-0 items-center justify-center gap-1">
       <PressAndHoldStepperButton onStep={() => onChange(Math.max(min, value - step))} ariaLabel={`${label}を減らす`}>
         <Minus size={14} />
       </PressAndHoldStepperButton>
-      <div className="flex min-w-0 flex-1 flex-col items-center">
-        <input type="number" inputMode="decimal" min={min} step={step} value={value} onChange={(event) => updateValue(event.target.value)} className="w-full min-w-0 bg-transparent text-center font-display text-display-num text-macho-lime outline-none" aria-label={label} />
+      <div className="flex shrink-0 flex-col items-center">
+        <input type="number" inputMode="decimal" min={min} step={step} value={value} onChange={(event) => updateValue(event.target.value)} className="w-[4.25rem] min-w-[4.25rem] shrink-0 bg-transparent text-center font-display text-display-num text-macho-lime outline-none" aria-label={label} />
         <span className="text-[10px] text-macho-muted">{label}</span>
       </div>
       <PressAndHoldStepperButton onStep={() => onChange(value + step)} ariaLabel={`${label}を増やす`}>
