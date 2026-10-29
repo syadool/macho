@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData } from "@/lib/data";
 import { getUserProfile } from "@/lib/profile";
-import { requireUser } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/session";
 import { OnboardingForm } from "./onboarding-form";
 
 export const dynamic = "force-dynamic";

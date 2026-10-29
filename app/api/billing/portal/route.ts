@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getConfiguredAppUrl } from "@/lib/app-url";
 import { getStripeClient } from "@/lib/stripe/client";
-import { requireApiOnboardedUser } from "@/lib/supabase/server";
+import { requireApiOnboardedUser } from "@/lib/auth/session";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";

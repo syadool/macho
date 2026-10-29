@@ -15,8 +15,8 @@
 |----------|------|
 | フロントエンド | Next.js 15 (App Router) + TypeScript |
 | スタイリング | Tailwind CSS v4 |
-| バックエンド/DB | Supabase (PostgreSQL) |
-| 認証 | Supabase Auth (Google OAuth) |
+| バックエンド/DB | Cloudflare D1 (SQLite) |
+| 認証 | Better Auth (Google OAuth) |
 | デプロイ | Cloudflare Workers (OpenNext) |
 | フォント | Bebas Neue (見出し), Outfit (本文) |
 
@@ -179,9 +179,9 @@
 ## 6. 認証フロー
 
 1. ログイン画面で「Googleでログイン」をタップ
-2. Supabase Auth → Google OAuth リダイレクト
+2. Better Auth（`/api/auth/*`）→ Google OAuth リダイレクト
 3. 認証成功 → ダッシュボードへ遷移
-4. セッション管理: Supabase クライアントライブラリが自動管理
+4. セッション管理: Better Auth がD1の `session` テーブルと署名付きCookieで管理（有効期限30日、利用中は自動延長）
 5. 未認証でのアクセス → ログイン画面にリダイレクト
 
 ## 7. API設計 (Next.js App Router)
@@ -201,9 +201,9 @@ app/
         └── ...
 ```
 
-### Supabase クエリ例
+### D1 クエリ例（`src/lib/db/`）
 - ダッシュボード: 今日のワークアウト + 直近7日の集計
-- 記録: INSERT workout → INSERT exercises → INSERT sets (トランザクション)
+- 記録: INSERT workout → INSERT exercises → INSERT sets（`db.batch()` で1トランザクション）
 - 履歴: 日付降順でワークアウト一覧 + フィルタ
 
 ## 8. 現行機能・将来拡張
@@ -229,4 +229,4 @@ app/
 | オフライン | 将来検討（PWA対応） |
 | アクセシビリティ | WCAG 2.1 AA準拠を目指す |
 | ブラウザ | Chrome, Safari (iOS/Android), Edge |
-| セキュリティ | Supabase RLS, HTTPS必須 |
+| セキュリティ | 全クエリを `src/lib/db/` 経由にして user_id で絞り込む（旧Supabase RLSの代わり）, HTTPS必須 |

@@ -5,7 +5,7 @@ import { BottomNav, PageTitle } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData, getWorkoutById } from "@/lib/data";
 import { toJstDateInputValue } from "@/lib/date";
-import { requireOnboardedUser } from "@/lib/supabase/server";
+import { requireOnboardedUser } from "@/lib/auth/session";
 import { getExerciseHistory } from "@/lib/exercise-history";
 import { EditWorkoutForm } from "./edit-workout-form";
 

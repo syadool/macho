@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { getConfiguredAppUrl } from "@/lib/app-url";
 import { getTierForStripePriceId } from "@/lib/billing/plans";
 import { getStripeClient } from "@/lib/stripe/client";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireApiOnboardedUser } from "@/lib/supabase/server";
+import { requireApiOnboardedUser } from "@/lib/auth/session";
+import { updateSubscriptionFields } from "@/lib/db/profiles";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -32,13 +32,12 @@ export async function POST(req: Request) {
   }
 
   const stripe = getStripeClient();
-  const admin = createAdminClient();
   const customerId =
     auth.profile.stripe_customer_id ??
     (
       await stripe.customers.create(
         {
-          email: auth.user.email ?? undefined,
+          email: auth.user.email || undefined,
           metadata: { supabase_user_id: auth.user.id },
         },
         { idempotencyKey: `macho_customer_${auth.user.id}` },
@@ -46,8 +45,7 @@ export async function POST(req: Request) {
     ).id;
 
   if (!auth.profile.stripe_customer_id) {
-    const { error } = await admin.from("user_profiles").update({ stripe_customer_id: customerId }).eq("user_id", auth.user.id);
-    if (error) throw new Error(error.message);
+    await updateSubscriptionFields(auth.user.id, { stripe_customer_id: customerId });
   }
 
   const subscriptions = await stripe.subscriptions.list({

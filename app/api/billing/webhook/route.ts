@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { markSubscriptionDeleted, syncStripeSubscription } from "@/lib/billing/stripe-sync";
 import { getStripeClient } from "@/lib/stripe/client";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { findUserIdByStripeCustomerId, updateSubscriptionFields } from "@/lib/db/profiles";
+import { claimSubscriptionEvent, markSubscriptionEventProcessed, recordSubscriptionEvent } from "@/lib/db/subscription-events";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,32 +22,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_signature" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { error: insertError } = await admin
-    .from("subscription_events")
-    .upsert(
-      {
-        stripe_event_id: event.id,
-        event_type: event.type,
-        payload: event as unknown as Record<string, unknown>,
-      },
-      { onConflict: "stripe_event_id", ignoreDuplicates: true },
-    );
-  if (insertError) throw new Error(insertError.message);
-
-  const { data: claimed, error: claimError } = await admin.rpc("claim_subscription_event", {
-    p_stripe_event_id: event.id,
-  });
-  if (claimError) throw new Error(claimError.message);
-  if (claimed !== true) return NextResponse.json({ received: true });
+  await recordSubscriptionEvent({ stripeEventId: event.id, eventType: event.type, payload: event });
+  if (!(await claimSubscriptionEvent(event.id))) return NextResponse.json({ received: true });
 
   const userId = await processBillingEvent(event);
-  const { error } = await admin
-    .from("subscription_events")
-    .update({ user_id: userId, processed_at: new Date().toISOString() })
-    .eq("stripe_event_id", event.id);
-
-  if (error) throw new Error(error.message);
+  await markSubscriptionEventProcessed(event.id, userId);
   return NextResponse.json({ received: true });
 }
 
@@ -73,9 +53,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, eventCr
   const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id ?? null;
   if (!userId || !customerId) return null;
 
-  const admin = createAdminClient();
-  const { error } = await admin.from("user_profiles").update({ stripe_customer_id: customerId }).eq("user_id", userId);
-  if (error) throw new Error(error.message);
+  await updateSubscriptionFields(userId, { stripe_customer_id: customerId });
 
   if (subscriptionId) {
     const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
@@ -89,8 +67,5 @@ async function findUserIdFromInvoice(invoice: Stripe.Invoice) {
   const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id ?? null;
   if (!customerId) return null;
 
-  const admin = createAdminClient();
-  const { data, error } = await admin.from("user_profiles").select("user_id").eq("stripe_customer_id", customerId).maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data?.user_id as string | undefined) ?? null;
+  return findUserIdByStripeCustomerId(customerId);
 }
