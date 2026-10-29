@@ -1,19 +1,6 @@
-import { requireUser } from "@/lib/supabase/server";
-import type { ExerciseHistoryEntry, ExerciseType } from "@/lib/types";
-
-type ExerciseHistoryWorkoutRow = {
-  date: string;
-  workout_exercises: Array<{
-    exercise_name: string;
-    exercise_type: ExerciseType | null;
-    muscle_group_id: string | null;
-    duration_minutes: number | null;
-    workout_sets: Array<{ set_number: number; weight_kg: number; reps: number }> | null;
-  }> | null;
-};
-
-const EXERCISE_HISTORY_SELECT =
-  "date,workout_exercises(exercise_name,exercise_type,muscle_group_id,duration_minutes,workout_sets(set_number,weight_kg,reps))";
+import { requireUser } from "@/lib/auth/session";
+import { listWorkouts } from "@/lib/db/workouts";
+import type { ExerciseHistoryEntry } from "@/lib/types";
 
 /**
  * ログインユーザーの過去のエクササイズ名を直近使用順で集約し、
@@ -21,19 +8,8 @@ const EXERCISE_HISTORY_SELECT =
  * 同名種目が複数回登場する場合は最も新しい記録を採用する。
  */
 export async function getExerciseHistory(limit = 20): Promise<ExerciseHistoryEntry[]> {
-  const { supabase, user } = await requireUser();
-
-  const { data, error } = await supabase
-    .from("workouts")
-    .select(EXERCISE_HISTORY_SELECT)
-    .eq("user_id", user.id)
-    .order("date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(200);
-
-  if (error) throw new Error(error.message);
-
-  const workoutRows = ((data as unknown) as ExerciseHistoryWorkoutRow[] | null) ?? [];
+  const { user } = await requireUser();
+  const workoutRows = await listWorkouts(user.id, { limit: 200 });
   const seen = new Map<string, ExerciseHistoryEntry>();
 
   for (const workout of workoutRows) {
@@ -49,8 +25,8 @@ export async function getExerciseHistory(limit = 20): Promise<ExerciseHistoryEnt
 
       seen.set(key, {
         exercise_name: row.exercise_name,
-        exercise_type: row.exercise_type ?? "strength",
-        muscle_group_id: row.muscle_group_id,
+        exercise_type: row.exercise_type,
+        muscle_group_id: row.muscle_groups?.id ?? null,
         last_used_at: workout.date,
         last_duration_minutes: row.duration_minutes,
         last_sets: (row.workout_sets ?? [])

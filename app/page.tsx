@@ -2,20 +2,14 @@ import { redirect } from "next/navigation";
 import { Dumbbell } from "lucide-react";
 import { LoginButton } from "@/components/login-button";
 import { PhoneShell } from "@/components/phone-shell";
-import { createClient } from "@/lib/supabase/server";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { hasAuthEnv } from "@/lib/auth/config";
+import { getSessionUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
-  if (hasSupabaseEnv()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (user) redirect("/dashboard");
-  }
+  if (await getSessionUser()) redirect("/dashboard");
+  const authEnabled = hasAuthEnv();
 
   return (
     <PhoneShell>
@@ -34,10 +28,10 @@ export default async function LoginPage() {
           理想のカラダを手に入れよう
         </p>
 
-        <LoginButton disabled={!hasSupabaseEnv()} />
-        {!hasSupabaseEnv() && (
+        <LoginButton disabled={!authEnabled} />
+        {!authEnabled && (
           <p className="mt-4 max-w-[280px] text-xs leading-5 text-macho-muted">
-            Supabase環境変数を設定するとGoogleログインを開始できます。
+            認証用の環境変数（BETTER_AUTH_SECRET / GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET）を設定するとGoogleログインを開始できます。
           </p>
         )}
         <p className="mt-12 text-[11px] text-[#444]">v1.0.0</p>

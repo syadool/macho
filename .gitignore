@@ -46,3 +46,6 @@ next-env.d.ts
 .wrangler
 .dev.vars*
 !.dev.vars.example
+
+# Supabase→D1 移行データ（個人データを含む）
+migration-data*.sql

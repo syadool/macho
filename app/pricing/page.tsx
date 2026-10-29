@@ -4,7 +4,7 @@ import { PhoneShell } from "@/components/phone-shell";
 import { PageTitle } from "@/components/ui";
 import { getCheckoutPlans } from "@/lib/billing/plans";
 import { getUserProfile } from "@/lib/profile";
-import { requireOnboardedUser } from "@/lib/supabase/server";
+import { requireOnboardedUser } from "@/lib/auth/session";
 import { PricingClient } from "./pricing-client";
 
 export const dynamic = "force-dynamic";

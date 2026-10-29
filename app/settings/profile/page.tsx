@@ -4,7 +4,7 @@ import { PhoneShell } from "@/components/phone-shell";
 import { Card, PageTitle } from "@/components/ui";
 import { getMasterData } from "@/lib/data";
 import { getUserProfile } from "@/lib/profile";
-import { requireOnboardedUser } from "@/lib/supabase/server";
+import { requireOnboardedUser } from "@/lib/auth/session";
 import { ProfileForm } from "./profile-form";
 
 export const dynamic = "force-dynamic";

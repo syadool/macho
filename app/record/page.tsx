@@ -2,7 +2,7 @@ import { BottomNav, PageTitle } from "@/components/ui";
 import { PhoneShell } from "@/components/phone-shell";
 import { getMasterData } from "@/lib/data";
 import { toJstDateInputValue } from "@/lib/date";
-import { requireOnboardedUser } from "@/lib/supabase/server";
+import { requireOnboardedUser } from "@/lib/auth/session";
 import { getTemplateById } from "@/lib/templates";
 import { getExerciseHistory } from "@/lib/exercise-history";
 import { RecordForm } from "./record-form";

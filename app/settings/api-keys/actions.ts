@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createGptApiKey, revokeGptApiKey } from "@/lib/gpt/api-keys";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { requireOnboardedUser } from "@/lib/supabase/server";
+import { requireOnboardedUser } from "@/lib/auth/session";
 
 export async function issueGptApiKey(input: { name: string }): Promise<{ ok: boolean; key?: string; message?: string }> {
   try {

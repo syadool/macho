@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cardioSchemaMigrationMessage, isMissingCardioSchemaError } from "@/lib/supabase/schema-errors";
-import { requireOnboardedUser } from "@/lib/supabase/server";
+import { requireOnboardedUser } from "@/lib/auth/session";
+import { updateWorkout as updateWorkoutRecord } from "@/lib/db/workouts";
 import type { NewExercisePayload } from "@/lib/types";
 import { validateWorkoutInput } from "@/lib/workout-input";
 
@@ -19,49 +19,24 @@ export async function updateWorkout(
 ): Promise<UpdateWorkoutState> {
   const validated = validateWorkoutInput(date, exercises);
   if (!validated.ok) return validated;
+  if (typeof workoutId !== "string" || typeof expectedUpdatedAt !== "string") {
+    return { ok: false, message: "ワークアウトの更新に失敗しました。" };
+  }
 
-  const { supabase } = await requireOnboardedUser();
+  const { user } = await requireOnboardedUser();
 
-  const { error } = await supabase.rpc("update_workout_with_details", {
-    p_workout_id: workoutId,
-    p_date: date,
-    p_exercises: validated.payload,
-    p_expected_updated_at: expectedUpdatedAt,
-  });
-
-  if (error) {
-    if (hasCardioExercise(exercises) && isMissingCardioSchemaError(error.message)) {
-      return { ok: false, message: cardioSchemaMigrationMessage() };
-    }
-
-    if (isMissingUpdateWorkoutRpcError(error.message)) {
-      return {
-        ok: false,
-        message: "履歴編集にはDBマイグレーションの適用が必要です。先にSupabaseの更新を反映してください。",
-      };
-    }
-
-    if (error.message.includes("Workout has been modified")) {
+  try {
+    const result = await updateWorkoutRecord(user.id, workoutId, date, validated.payload, expectedUpdatedAt);
+    if (result === "modified") {
       return { ok: false, message: "別の画面で更新されています。再読み込みしてから編集してください。" };
     }
-
+  } catch (error) {
     console.error("Failed to update workout", error);
     return { ok: false, message: "ワークアウトの更新に失敗しました。" };
   }
 
   revalidateWorkoutPaths(workoutId);
   return { ok: true };
-}
-
-function isMissingUpdateWorkoutRpcError(message: string) {
-  return (
-    message.includes("Could not find the function public.update_workout_with_details") ||
-    message.includes("Could not find function public.update_workout_with_details")
-  );
-}
-
-function hasCardioExercise(exercises: NewExercisePayload[]) {
-  return exercises.some((exercise) => exercise.exercise_type === "cardio");
 }
 
 function revalidateWorkoutPaths(workoutId: string) {

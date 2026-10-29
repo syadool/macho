@@ -1,59 +1,35 @@
 import { randomBytes } from "crypto";
+import { requireOnboardedUser } from "@/lib/auth/session";
+import { countApiKeys, deleteApiKey, insertApiKey, listApiKeys } from "@/lib/db/api-keys";
 import { hashGptApiKey } from "@/lib/gpt/auth";
-import { requireOnboardedUser } from "@/lib/supabase/server";
+
+export type { ApiKeySummary } from "@/lib/db/api-keys";
 
 const MAX_GPT_API_KEYS_PER_USER = 5;
 
-export type ApiKeySummary = {
-  id: string;
-  key_prefix: string;
-  name: string;
-  created_at: string;
-  last_used_at: string | null;
-};
-
 export async function listGptApiKeys() {
-  const { supabase, user } = await requireOnboardedUser();
-  const { data, error } = await supabase
-    .from("api_keys")
-    .select("id,key_prefix,name,created_at,last_used_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(error.message);
-  return (data as ApiKeySummary[] | null) ?? [];
+  const { user } = await requireOnboardedUser();
+  return listApiKeys(user.id);
 }
 
 export async function createGptApiKey(name: string) {
-  const { supabase, user } = await requireOnboardedUser();
-  const { count, error: countError } = await supabase
-    .from("api_keys")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
-
-  if (countError) throw new Error(countError.message);
-  if ((count ?? 0) >= MAX_GPT_API_KEYS_PER_USER) {
+  const { user } = await requireOnboardedUser();
+  if ((await countApiKeys(user.id)) >= MAX_GPT_API_KEYS_PER_USER) {
     throw new Error("GPT_API_KEY_LIMIT_EXCEEDED");
   }
 
   const token = `macho_${randomBytes(16).toString("hex")}`;
-  const normalizedName = normalizeApiKeyName(name);
-  const { error } = await supabase.from("api_keys").insert({
-    user_id: user.id,
-    key_hash: hashGptApiKey(token),
-    key_prefix: token.slice(0, 12),
-    name: normalizedName,
+  await insertApiKey(user.id, {
+    keyHash: hashGptApiKey(token),
+    keyPrefix: token.slice(0, 12),
+    name: normalizeApiKeyName(name),
   });
-
-  if (error) throw new Error(error.message);
   return token;
 }
 
 export async function revokeGptApiKey(id: string) {
-  const { supabase, user } = await requireOnboardedUser();
-  const { error } = await supabase.from("api_keys").delete().eq("id", id).eq("user_id", user.id);
-
-  if (error) throw new Error(error.message);
+  const { user } = await requireOnboardedUser();
+  await deleteApiKey(user.id, id);
 }
 
 function normalizeApiKeyName(name: string) {

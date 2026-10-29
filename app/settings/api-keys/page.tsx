@@ -5,7 +5,7 @@ import { PhoneShell } from "@/components/phone-shell";
 import { Card, PageTitle } from "@/components/ui";
 import { resolvePublicAppUrl } from "@/lib/app-url";
 import { listGptApiKeys } from "@/lib/gpt/api-keys";
-import { requireOnboardedUser } from "@/lib/supabase/server";
+import { requireOnboardedUser } from "@/lib/auth/session";
 import { ApiKeyManager } from "./api-key-manager";
 
 export const dynamic = "force-dynamic";

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { GoogleIcon } from "@/components/icons";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth/client";
 
 export function LoginButton({ disabled }: { disabled: boolean }) {
   const [loading, setLoading] = useState(false);
@@ -13,13 +13,11 @@ export function LoginButton({ disabled }: { disabled: boolean }) {
     setLoading(true);
     setError("");
 
-    const supabase = createClient();
     try {
-      const { error: signInError } = await supabase.auth.signInWithOAuth({
+      const { error: signInError } = await authClient.signIn.social({
         provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
+        callbackURL: "/dashboard",
+        errorCallbackURL: "/?error=auth_failed",
       });
       if (signInError) setError("Googleログインを開始できませんでした。");
     } catch {
