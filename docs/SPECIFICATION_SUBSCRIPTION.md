@@ -125,9 +125,9 @@ const event = stripe.webhooks.constructEvent(
 
 | キー | 用途 | 保管場所 |
 |------|------|---------|
-| Restricted API Key (`rk_`) | サーバーサイド API 呼び出し | Vercel 環境変数 |
+| Restricted API Key (`rk_`) | サーバーサイド API 呼び出し | Cloudflare Workers シークレット |
 | Publishable Key (`pk_`) | クライアント (不要: Checkout はリダイレクト型) | - |
-| Webhook Signing Secret (`whsec_`) | Webhook 署名検証 | Vercel 環境変数 |
+| Webhook Signing Secret (`whsec_`) | Webhook 署名検証 | Cloudflare Workers シークレット |
 
 > Secret Key (`sk_`) ではなく **Restricted API Key** を使用する。必要最小限の権限のみ付与:
 > - `checkout.sessions`: write
@@ -404,7 +404,7 @@ const limits = getAILimitsForTier(profile.subscription_tier);
 
 - **Restricted API Key (RAK)** を使用。Secret Key (`sk_`) は使用しない
 - RAK には必要最小限の権限のみ付与
-- Vercel 環境変数に保管。ソースコードにはコミットしない
+- Cloudflare Workers シークレットに保管。ソースコードにはコミットしない
 - 本番用・テスト用で別々のキーを使用
 
 ### 9.2 Webhook

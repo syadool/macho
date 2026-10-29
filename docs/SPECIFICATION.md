@@ -17,7 +17,7 @@
 | スタイリング | Tailwind CSS v4 |
 | バックエンド/DB | Supabase (PostgreSQL) |
 | 認証 | Supabase Auth (Google OAuth) |
-| デプロイ | Vercel |
+| デプロイ | Cloudflare Workers (OpenNext) |
 | フォント | Bebas Neue (見出し), Outfit (本文) |
 
 ## 3. デザイン方針

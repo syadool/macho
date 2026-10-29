@@ -1,0 +1,13 @@
+# `wrangler dev` / `npm run preview` 用。.dev.vars にコピーして値を設定してください。
+# 本番では `npx wrangler secret put <NAME>` で登録します。
+NEXTJS_ENV=development
+
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+OPENAI_API_KEY=sk-your-openai-api-key
+
+STRIPE_RESTRICTED_KEY=rk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+STRIPE_PORTAL_CONFIGURATION_ID=bpc_xxx
+STRIPE_PRICE_GO=price_xxx
+STRIPE_PRICE_PLUS=price_xxx
+STRIPE_PRICE_PRO=price_xxx
