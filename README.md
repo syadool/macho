@@ -12,7 +12,7 @@
 | 認証 | Supabase Auth (Google OAuth) |
 | AI提案 | OpenAI API |
 | 課金 | Stripe |
-| デプロイ | Vercel |
+| デプロイ | Cloudflare Workers ([OpenNext](https://opennext.js.org/cloudflare)) |
 
 詳細な仕様は [docs/SPECIFICATION.md](docs/SPECIFICATION.md) を参照してください。
 
@@ -54,10 +54,28 @@ npm run dev
 ## その他のコマンド
 
 ```bash
-npm run build   # 本番ビルド
-npm run start   # 本番サーバー起動
-npm run lint    # ESLint実行
+npm run build      # Next.js本番ビルド
+npm run lint       # ESLint実行
+npm run preview    # Workersランタイム(workerd)でローカル確認
+npm run deploy     # Cloudflare Workersへデプロイ
+npm run cf-typegen # wrangler.jsonc から cloudflare-env.d.ts を再生成
 ```
+
+## デプロイ (Cloudflare Workers)
+
+1. `npx wrangler login`
+2. シークレットを登録（`.dev.vars.example` の各キー）:
+   ```bash
+   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+   ```
+   公開してよい設定値（`OPENAI_MODEL` やAI上限など）は `wrangler.jsonc` の `vars` にあります。
+3. `NEXT_PUBLIC_*` はビルド時に埋め込まれるため、`npm run deploy` を実行する環境の `.env.local`（Workers Buildsを使う場合はビルド変数）に設定してください。`NEXT_PUBLIC_APP_URL` は本番URLにします。
+4. `npm run deploy`
+5. デプロイ後に外部サービス側を更新:
+   - Supabase Dashboard > Authentication > URL Configuration の Site URL / Redirect URLs に `https://<本番ドメイン>/auth/callback` を追加
+   - Stripe Webhook のエンドポイントを `https://<本番ドメイン>/api/billing/webhook` に変更（署名シークレットが変わったら `STRIPE_WEBHOOK_SECRET` も更新）
+
+ローカルでWorkersランタイムを試す場合は `.dev.vars.example` を `.dev.vars` にコピーしてから `npm run preview` を実行します。
 
 ## ディレクトリ構成
 
