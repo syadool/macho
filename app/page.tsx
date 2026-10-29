@@ -3,16 +3,22 @@ import { Dumbbell } from "lucide-react";
 import { LoginButton } from "@/components/login-button";
 import { PhoneShell } from "@/components/phone-shell";
 import { createClient } from "@/lib/supabase/server";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { hasSupabaseEnv, withAuthTimeout } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
   if (hasSupabaseEnv()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user = null;
+    try {
+      const supabase = await createClient();
+      ({
+        data: { user },
+      } = await withAuthTimeout(supabase.auth.getUser()));
+    } catch (error) {
+      // Show the login screen instead of crashing when Supabase is unreachable.
+      console.error("Supabase getUser failed on login page", error);
+    }
 
     if (user) redirect("/dashboard");
   }

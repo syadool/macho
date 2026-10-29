@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
-import { getSupabaseAnonKey, getSupabaseUrl, hasSupabaseEnv } from "@/lib/supabase/env";
+import { fetchWithTimeout, getSupabaseAnonKey, getSupabaseUrl, hasSupabaseEnv, withAuthTimeout } from "@/lib/supabase/env";
 
 export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    global: { fetch: fetchWithTimeout },
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -28,7 +29,7 @@ export async function requireUser() {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await withAuthTimeout(supabase.auth.getUser());
 
   if (!user) redirect("/");
 
@@ -54,7 +55,7 @@ export async function requireApiOnboardedUser() {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await withAuthTimeout(supabase.auth.getUser());
 
   if (!user) return { ok: false as const, status: 401 as const };
 

@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { getSupabaseAnonKey, getSupabaseUrl, hasSupabaseEnv } from "@/lib/supabase/env";
+import { fetchWithTimeout, getSupabaseAnonKey, getSupabaseUrl, hasSupabaseEnv, withAuthTimeout } from "@/lib/supabase/env";
 
 export async function middleware(request: NextRequest) {
   if (!hasSupabaseEnv()) return NextResponse.next({ request });
 
   let response = NextResponse.next({ request });
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    global: { fetch: fetchWithTimeout },
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -19,7 +20,13 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
+  try {
+    await withAuthTimeout(supabase.auth.getUser());
+  } catch (error) {
+    // Skip the session refresh rather than blocking every page when Supabase is unreachable.
+    console.error("Supabase session refresh failed in middleware", error);
+    return NextResponse.next({ request });
+  }
   return response;
 }
 
